@@ -184,6 +184,7 @@ __device__ void intersection_normal(t_sphere *sphere,
 
 	float visible = 1.0;
 	float current_lambda = FLT_MAX; // maximum positive float
+	int count=0;
 
 	//find closest ray object / intersection ;
 	for (k=0; k<n_spheres; k++)
@@ -213,7 +214,13 @@ __device__ void intersection_normal(t_sphere *sphere,
 					(&ray_tmp, &spheres[k], &intersection)
 				   )
 				{
-					visible = 0.2; //or 0.0 for absolute black
+					if (count++ == 0)
+					{   
+						visible = 0.2; 
+					}else
+					{   
+						visible = 0.0;
+					}   
 					break;
 				}
 			}
