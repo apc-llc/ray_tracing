@@ -20,6 +20,18 @@
 #include "kernel.h"
 
 
+#define CUDA_CALL(x) do { cudaError_t err = x; if (( err ) != cudaSuccess ) { \
+	printf ("Error \"%s\" at %s :%d \n" , cudaGetErrorString(err), \
+			__FILE__ , __LINE__ ) ; exit(-1);\
+}} while (0)
+
+#define CURAND_CALL(x) do { if (( x ) != CURAND_STATUS_SUCCESS ) {\
+	printf ("Error at %s :%d \n" , __FILE__ , __LINE__ ) ;\
+	exit(-1); }} while (0)
+
+
+
+
 //Round a / b to nearest higher integer value
 inline int iDivUp(int a, int b)
 {
@@ -47,14 +59,13 @@ void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_l
 	curandGenerator_t gen;
 	float *devData, *hostData;
 	hostData = (float *)calloc(n, sizeof(float));
-	cudaMalloc((void **)&devData, n*sizeof(float));
+	CUDA_CALL( cudaMalloc((void **)&devData, n*sizeof(float)) );
 
-	curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
-	curandSetPseudoRandomGeneratorSeed(gen, 
-		(unsigned long long)time(NULL)); 
+	CURAND_CALL( curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT) );
+	CURAND_CALL( curandSetPseudoRandomGeneratorSeed(gen, (unsigned long long)time(NULL)) ); 
 
-	curandGenerateUniform(gen, devData, n);
-	cudaMemcpy(hostData, devData, n * sizeof(float), cudaMemcpyDeviceToHost);
+	CURAND_CALL( curandGenerateUniform(gen, devData, n) );
+	CUDA_CALL( cudaMemcpy(hostData, devData, n * sizeof(float), cudaMemcpyDeviceToHost) );
 	
 	int j=0;
 	for (int i=0; i<n_spheres; i++)
@@ -108,10 +119,11 @@ void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_l
 
 
 
-	curandDestroyGenerator(gen);
-	cudaFree(devData);
+	CURAND_CALL( curandDestroyGenerator(gen) );
+	CUDA_CALL( cudaFree(devData) );
 	free(hostData);    
 }
+
 
 
 
@@ -126,18 +138,18 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 //#define STACK_INCREASE
 #ifdef STACK_INCREASE 
 	size_t stack=0;
-	cudaDeviceGetLimit(&stack, cudaLimitStackSize); 
+	CUDA_CALL( cudaDeviceGetLimit(&stack, cudaLimitStackSize) ); 
 	printf ("Cuda stack size %ld \n", stack);
 	stack = 1536;
 	printf ("Setting cuda stack size to %ld \n", stack);
-	cudaDeviceSetLimit(cudaLimitStackSize, stack);
+	CUDA_CALL( cudaDeviceSetLimit(cudaLimitStackSize, stack) );
 #endif
 
 	//cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 	//cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
 
-	cudaEventCreate (&start);
-        cudaEventCreate (&stop);
+	CUDA_CALL (cudaEventCreate (&start) );
+        CUDA_CALL (cudaEventCreate (&stop) );
 
 	t_sphere * spheres = (t_sphere *) malloc (sizeof(t_sphere) * n_spheres);
 	t_light * lights = (t_light *) malloc (sizeof(t_light) * n_lights);
@@ -154,25 +166,25 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 	t_sphere * dev_spheres;
 	t_light * dev_lights;
 
-	cudaMalloc((void **)&dev_spheres,  sizeof(t_sphere) * n_spheres );
-	cudaMalloc((void **)&dev_lights,  sizeof(t_light) * n_lights );
+	CUDA_CALL( cudaMalloc((void **)&dev_spheres,  sizeof(t_sphere) * n_spheres ) );
+	CUDA_CALL( cudaMalloc((void **)&dev_lights,  sizeof(t_light) * n_lights ) );
 
-	cudaMemcpy(dev_spheres, spheres, sizeof(t_sphere) * n_spheres, cudaMemcpyHostToDevice);
-	cudaMemcpy(dev_lights, lights, sizeof(t_light) * n_lights, cudaMemcpyHostToDevice);
+	CUDA_CALL( cudaMemcpy(dev_spheres, spheres, sizeof(t_sphere) * n_spheres, cudaMemcpyHostToDevice) );
+	CUDA_CALL( cudaMemcpy(dev_lights, lights, sizeof(t_light) * n_lights, cudaMemcpyHostToDevice) );
 
 	unsigned char * dev_image_red;
 	unsigned char * dev_image_green;
 	unsigned char * dev_image_blue;
 
-	cudaMalloc((void **)&dev_image_red,   height * width *sizeof(unsigned char));
-	cudaMalloc((void **)&dev_image_green, height * width *sizeof(unsigned char));
-	cudaMalloc((void **)&dev_image_blue,  height * width *sizeof(unsigned char));
+	CUDA_CALL( cudaMalloc((void **)&dev_image_red,   height * width *sizeof(unsigned char)) );
+	CUDA_CALL( cudaMalloc((void **)&dev_image_green, height * width *sizeof(unsigned char)) );
+	CUDA_CALL( cudaMalloc((void **)&dev_image_blue,  height * width *sizeof(unsigned char)) );
 
-	cudaMemset(dev_image_red,   0, height * width *sizeof(unsigned char));
-	cudaMemset(dev_image_green, 0, height * width *sizeof(unsigned char));
-	cudaMemset(dev_image_blue,  0, height * width *sizeof(unsigned char));
+	CUDA_CALL( cudaMemset(dev_image_red,   0, height * width *sizeof(unsigned char)) );
+	CUDA_CALL( cudaMemset(dev_image_green, 0, height * width *sizeof(unsigned char)) );
+	CUDA_CALL( cudaMemset(dev_image_blue,  0, height * width *sizeof(unsigned char)) );
 
-	cudaEventRecord (start, 0);
+	CUDA_CALL( cudaEventRecord (start, 0) );
 
 	dim3 block(BLOCK_SIZE_X, BLOCK_SIZE_Y, 1);
 	dim3 grid(iDivUp(width, block.x), iDivUp(height, block.y), 1);
@@ -191,29 +203,29 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 		printf( "%s \n", cudaGetErrorString( err ) );
 	}
 
-	cudaMemcpy(pR, dev_image_red,  height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost);
-	cudaMemcpy(pB, dev_image_blue, height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost);
-	cudaMemcpy(pG, dev_image_green,height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost);
+	CUDA_CALL( cudaMemcpy(pR, dev_image_red,  height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost) );
+	CUDA_CALL( cudaMemcpy(pB, dev_image_blue, height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost) );
+	CUDA_CALL( cudaMemcpy(pG, dev_image_green,height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost) );
 
-	cudaEventRecord (stop, 0);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime (&gpuTime, start, stop);
+	CUDA_CALL( cudaEventRecord (stop, 0) );
+        CUDA_CALL( cudaEventSynchronize(stop) );
+        CUDA_CALL( cudaEventElapsedTime (&gpuTime, start, stop) );
 
 	printf("GPU ray tracing  \n");
         printf("time spent executing on GPU: %.2f milliseconds\n", gpuTime);
 
-	cudaFree(dev_image_red);
-	cudaFree(dev_image_green);
-	cudaFree(dev_image_blue);
+	CUDA_CALL( cudaFree(dev_image_red) );
+	CUDA_CALL( cudaFree(dev_image_green) );
+	CUDA_CALL( cudaFree(dev_image_blue) );
 
-	cudaFree(dev_spheres);
-	cudaFree(dev_lights);
+	CUDA_CALL( cudaFree(dev_spheres) );
+	CUDA_CALL( cudaFree(dev_lights) );
+
+	CUDA_CALL( cudaEventDestroy (start) );
+	CUDA_CALL( cudaEventDestroy (stop) );
 
 	free (spheres);
 	free (lights);
-
-	cudaEventDestroy (start);
-	cudaEventDestroy (stop);
 
 	return ;
 }
