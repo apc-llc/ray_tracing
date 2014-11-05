@@ -105,25 +105,30 @@ __device__ bool sphere_intersection (t_ray *ray, t_sphere *sphere,
 	A = dotproduct(&ray->direction, &ray->direction);
 	
 	vec_sub(&temp, &ray->origin, &sphere->center);
-	B = __fmul_rn (2.0, dotproduct(&temp, &ray->direction));
+	B = __fmul_rn (2.0f, dotproduct(&temp, &ray->direction));
 	
 	C = __fadd_rn( dotproduct(&temp, &temp), 
 		-__fmul_rn( sphere->radius, sphere->radius ));
 	
 	discriminant = __fadd_rn( __fmul_rn(B, B), 
-		-__fmul_rn(4.0, __fmul_rn(A, C)));
+		-__fmul_rn(4.0f, __fmul_rn(A, C)));
 	
-	if (discriminant >= 0)
+	if (discriminant >= 0.0f)
 	{
 		lambda1 = __fdiv_rn(__fadd_rn(-B,  __fsqrt_rn(discriminant)), 
-			__fmul_rn(2.0, A));
+			__fmul_rn(2.0f, A));
 		lambda2 = __fdiv_rn(__fadd_rn(-B, -__fsqrt_rn(discriminant)), 
-			__fmul_rn(2.0, A));
+			__fmul_rn(2.0f, A));
 
 		intersection->lambda_in = fminf(lambda1, lambda2);
 
 		// is the object visible from the eye (lambda1,2>0)
-		if (fequal(intersection->lambda_in, 0.0) || (lambda1 > 0 && lambda2 > 0))
+		if (fequal(intersection->lambda_in, 0.0f))  
+		{
+			return true;
+		}
+
+		if (lambda1 > 0.0f && lambda2 > 0.0f)
 		{
 			return true;
 		}
@@ -265,6 +270,7 @@ __global__ void kernel(unsigned char * dev_image_red,
 		view_point.y = __fdiv_rn (y_dim, 2.0); 
 		view_point.z = 0; 
 	}
+	__syncthreads();
 
 //	if (threadIdx.x < n_spheres && threadIdx.y==0 )
 //	{
@@ -305,13 +311,23 @@ __global__ void kernel(unsigned char * dev_image_red,
 
 	idx = pixel.i + __mul24(width, pixel.j);
 
-	dev_image_red  [idx ]  = 
-		(unsigned char)round(__fmul_rn (RGB_MAX, illumination.red));
+	if (illumination.red != 0.0)
+	{
+		dev_image_red  [idx ]  = 
+			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.red));
+	}
 
-	dev_image_green[ idx ]  = 
-		(unsigned char)round(__fmul_rn (RGB_MAX, illumination.green));
+	if (illumination.green != 0.0)
+	{
+		dev_image_green[ idx ]  = 
+			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.green));
+	}
 
-	dev_image_blue [ idx ]  = 
-		(unsigned char)round(__fmul_rn (RGB_MAX, illumination.blue));
+	if (illumination.blue != 0.0)
+	{
+		dev_image_blue [ idx ]  = 
+			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.blue));
+	}
 }
+
 
