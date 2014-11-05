@@ -12,17 +12,15 @@
 
 #define ENABLE_CHECK
 
-
 int main( int argc, char* argv[] )
 {
-
 	if (argc != 6)
-        {
-                printf("Usage: %s <n_spheres> <n_lights> <width> <height> <bmp_filename> \n", argv[0]);
-                return -1; 
-        }
+	{
+		printf("Usage: %s <n_spheres> <n_lights> <width> <height> <bmp_filename> \n", argv[0]);
+		return -1; 
+	}
 
-        int n_spheres = atoi( argv[1]);
+	int n_spheres = atoi( argv[1]);
 #ifdef ENABLE_CHECK
 	if (n_spheres < 5 || n_spheres > 10)
 	{
@@ -31,7 +29,7 @@ int main( int argc, char* argv[] )
 	}
 #endif
 
-        int n_lights = atoi( argv[2]);
+	int n_lights = atoi( argv[2]);
 #ifdef ENABLE_CHECK
 	if (n_lights < 1 || n_lights > 2)
 	{
@@ -40,7 +38,7 @@ int main( int argc, char* argv[] )
 	}
 #endif
 
-        int width = atoi( argv[3]);
+	int width = atoi( argv[3]);
 #ifdef ENABLE_CHECK
 	if (width < 800 || width > 1920)
 	{
@@ -49,7 +47,7 @@ int main( int argc, char* argv[] )
 	}
 #endif
 
-        int height = atoi( argv[4]);
+	int height = atoi( argv[4]);
 #ifdef ENABLE_CHECK
 	if (height < 600 || height > 1080)
 	{
@@ -57,8 +55,6 @@ int main( int argc, char* argv[] )
 		return -1;
 	}
 #endif
-
-
 
 #ifdef DEBUG
 	printf ("Picture size is width=%d  height=%d \n", width, height);
@@ -72,9 +68,9 @@ int main( int argc, char* argv[] )
 
 	BMP AnImage;
 	AnImage.SetSize(width, height);
-	for ( int i = 0 ; i < width ; i++)
+	for (int i = 0 ; i < width ; i++)
 	{
-		for ( int j = 0 ; j < height ; j++)
+		for (int j = 0 ; j < height ; j++)
 		{
 			RGBApixel pixel ;
 			pixel.Red = pR [ j * width + i ] ;

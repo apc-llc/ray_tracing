@@ -1,7 +1,6 @@
 #ifndef KERNEL_GPU_H
 #define KERNEL_GPU_H
 
-
 #define DISTANCE 25.0
 
 #define BOX_SIZE 20.0
@@ -16,23 +15,26 @@
 
 #define FORCE_ALIGNING
 
-typedef struct{
-        float x;
-        float y;
-        float z;
+typedef struct
+{
+	float x;
+	float y;
+	float z;
 #ifdef FORCE_ALIGNING
 	float dummy;
 #endif
-}t_vector;
+}
+t_vector;
 
-
-typedef struct{
+typedef struct
+{
 	int i;
 	int j;
-}t_pixel;
+}
+t_pixel;
 
-
-typedef struct  {
+typedef struct
+{
 	t_vector normal;
 	t_vector point;
 	float  lambda_in;
@@ -41,35 +43,38 @@ typedef struct  {
 	float dummy2;
 	float dummy3;
 #endif
-} t_sphere_intersection ;
+}
+t_sphere_intersection;
 
-typedef struct  {
+typedef struct
+{
 	t_vector center;
 	float radius;
 	float red;
 	float green;
 	float blue;
-}t_sphere;
+}
+t_sphere;
 
-
-typedef struct {
+typedef struct
+{
 	t_vector origin;
 	t_vector direction;
-}t_ray;
+}
+t_ray;
 
-
-typedef struct {
+typedef struct
+{
 	float red;
 	float green;
 	float blue;
 #ifdef FORCE_ALIGNING
 	float dummy;
 #endif
-} t_color;
-
+}
+t_color;
 
 #define t_light t_vector
-
 
 __global__ void kernel( unsigned char * dev_image_red, 
 			unsigned char * dev_image_blue, 
@@ -78,6 +83,5 @@ __global__ void kernel( unsigned char * dev_image_red,
 			t_sphere * spheres, int n_spheres, 
 			t_light * lights, int n_lights);
 
-
-#endif
+#endif // KERNEL_GPU_H
 

@@ -2,7 +2,6 @@
 #include <float.h>
 #include <stdio.h>
 
-
 #define X_DIM BOX_SIZE
 
 __device__ __shared__ t_vector view_point;
@@ -13,77 +12,68 @@ __device__ __shared__ int n_lights;
 __device__ __shared__ t_sphere spheres[ SPHERES_MAX ];
 __device__ __shared__ t_light  lights[ LIGHTS_MAX  ];
 
-
 #define EPSILON 1e-2
 __device__  bool fequal(float a, float b)
 {
 	return fabs( __fadd_rn(a, -b) ) < EPSILON;
 }
 
-__device__ void vec_sub (t_vector *v1, t_vector *v2, t_vector *v3) {
-
-	v1->x = __fadd_rn( v2->x, -v3->x);
-	v1->y = __fadd_rn( v2->y, -v3->y);
-	v1->z = __fadd_rn( v2->z, -v3->z);
+__device__ void vec_sub(t_vector *v1, t_vector *v2, t_vector *v3)
+{
+	v1->x = __fadd_rn(v2->x, -v3->x);
+	v1->y = __fadd_rn(v2->y, -v3->y);
+	v1->z = __fadd_rn(v2->z, -v3->z);
 }
 
-__device__ void vec_add (t_vector *v1, t_vector *v2, t_vector *v3) {
-	
-	v1->x = __fadd_rn (v2->x, v3->x);
-	v1->y = __fadd_rn (v2->y, v3->y);
-	v1->z = __fadd_rn (v2->z, v3->z);
+__device__ void vec_add(t_vector *v1, t_vector *v2, t_vector *v3)
+{	
+	v1->x = __fadd_rn(v2->x, v3->x);
+	v1->y = __fadd_rn(v2->y, v3->y);
+	v1->z = __fadd_rn(v2->z, v3->z);
 }
 
-__device__ void vec_scale (float scale, t_vector *v1, t_vector *v2) {
-	
-	v1->x = __fmul_rn (scale, v2->x); // multiplying
-	v1->y = __fmul_rn (scale, v2->y);
-	v1->z = __fmul_rn (scale, v2->z);
+__device__ void vec_scale(float scale, t_vector *v1, t_vector *v2)
+{	
+	v1->x = __fmul_rn(scale, v2->x); // multiplying
+	v1->y = __fmul_rn(scale, v2->y);
+	v1->z = __fmul_rn(scale, v2->z);
 }
 
-__device__ float dotproduct (t_vector *v1, t_vector *v2) {
-	
-	return 
-		__fadd_rn(
-		 	__fmul_rn (v1->x, v2->x), 
-			__fadd_rn ( __fmul_rn (v1->y, v2->y),  __fmul_rn (v1->z, v2->z))
-		 );
+__device__ float dotproduct(t_vector *v1, t_vector *v2)
+{	
+	return __fadd_rn(
+		__fmul_rn(v1->x, v2->x),
+		__fadd_rn( __fmul_rn (v1->y, v2->y), __fmul_rn(v1->z, v2->z)));
 }
 
-
-__device__ void normalize_vector (t_vector *v) {
-	
-	float magnitude;
-	
-	magnitude = __fsqrt_rn ( dotproduct(v, v) );
+__device__ void normalize_vector(t_vector *v)
+{	
+	float magnitude = __fsqrt_rn(dotproduct(v, v));
 	v->x = __fdiv_rn (v->x, magnitude);
 	v->y = __fdiv_rn (v->y, magnitude);
 	v->z = __fdiv_rn (v->z, magnitude);
 }
 
-__device__ void compute_ray(t_ray* ray, t_vector* view_point,
-			 t_pixel* pixel) 
+__device__ void compute_ray(t_ray* ray, t_vector* view_point, t_pixel* pixel) 
 {
 	ray->origin = *view_point;
 
 	ray->direction.x = 
-		__fdiv_rn (__fmul_rn (X_DIM, pixel->i), 
-			__mul24(blockDim.x, gridDim.x)) - __fdiv_rn (X_DIM, 2.0) ;
+		__fdiv_rn(__fmul_rn(X_DIM, pixel->i), 
+			__mul24(blockDim.x, gridDim.x)) - __fdiv_rn(X_DIM, 2.0) ;
 
 	ray->direction.y = 
-		__fdiv_rn (__fmul_rn (y_dim, pixel->j), 
-			__mul24(blockDim.y, gridDim.y)) - __fdiv_rn (y_dim, 2.0) ;
+		__fdiv_rn(__fmul_rn(y_dim, pixel->j), 
+			__mul24(blockDim.y, gridDim.y)) - __fdiv_rn(y_dim, 2.0) ;
 
-	ray->direction.z = (float) DISTANCE;
+	ray->direction.z = (float)DISTANCE;
 
 	normalize_vector(&ray->direction);
 }
 
-
 __device__ void compute_reflected_ray(t_ray* reflected_ray, t_ray* incidence_ray, 
-		t_sphere_intersection* intersection) 
-{
-	
+	t_sphere_intersection* intersection) 
+{	
 	float dp1;
 	t_vector scaled_normal;
 	reflected_ray->origin=intersection->point;
@@ -96,20 +86,17 @@ __device__ void compute_reflected_ray(t_ray* reflected_ray, t_ray* incidence_ray
 	vec_sub(&reflected_ray->direction, &incidence_ray->direction, &scaled_normal);
 }
 
-
 __device__ void compute_ray_to_light(t_ray* ray, 
-		t_sphere_intersection* intersection, t_vector* light)
+	t_sphere_intersection* intersection, t_vector* light)
 {
 	ray->origin = intersection->point;
-        vec_sub(&ray->direction, light, &intersection->point);
-        normalize_vector(&ray->direction);
+	vec_sub(&ray->direction, light, &intersection->point);
+	normalize_vector(&ray->direction);
 }
-
 
 __device__ bool sphere_intersection (t_ray *ray, t_sphere *sphere, 
 		t_sphere_intersection* intersection) 
 {
-
 	float discriminant;
 	float A, B, C;
 	float lambda1, lambda2;
@@ -126,22 +113,23 @@ __device__ bool sphere_intersection (t_ray *ray, t_sphere *sphere,
 	discriminant = __fadd_rn( __fmul_rn(B, B), 
 		-__fmul_rn(4.0, __fmul_rn(A, C)));
 	
-	if (discriminant >= 0) {
-		lambda1 = __fdiv_rn (__fadd_rn(-B,  __fsqrt_rn(discriminant)), 
-				__fmul_rn(2.0, A));
-		lambda2 = __fdiv_rn (__fadd_rn(-B, -__fsqrt_rn(discriminant)), 
-				__fmul_rn(2.0, A));
+	if (discriminant >= 0)
+	{
+		lambda1 = __fdiv_rn(__fadd_rn(-B,  __fsqrt_rn(discriminant)), 
+			__fmul_rn(2.0, A));
+		lambda2 = __fdiv_rn(__fadd_rn(-B, -__fsqrt_rn(discriminant)), 
+			__fmul_rn(2.0, A));
 
 		intersection->lambda_in = fminf(lambda1, lambda2);
 
 		// is the object visible from the eye (lambda1,2>0)
-		if (fequal( intersection->lambda_in, 0.0) || (lambda1>0 && lambda2>0) ){
+		if (fequal(intersection->lambda_in, 0.0) || (lambda1 > 0 && lambda2 > 0))
+		{
 			return true;
 		}
 	}
 	return false;
 }
-
 
 // Calculate normal vector in the point of intersection:
 __device__ void intersection_normal(t_sphere *sphere, 
@@ -163,24 +151,20 @@ __device__ void intersection_normal(t_sphere *sphere,
 	normalize_vector(&intersection->normal);
 }
 
-
-
-
-
- __device__ t_color TraceRay(t_ray ray, int depth )
+__device__ t_color TraceRay(t_ray ray, int depth)
 {
 	t_ray ray_tmp;
 	t_color illumination={0.0, 0.0, 0.0};
 	t_color tmp;
 
-	if( depth > DEPTH_MAX )
+	if (depth > DEPTH_MAX )
 	{
-		return illumination ;
+		return illumination;
 	}
 
 	t_sphere_intersection intersection, current_intersection;
 	int intersection_object = -1; // none
-	int k,i;
+	int k, i;
 
 	float visible = 1.0;
 	float current_lambda = FLT_MAX; // maximum positive float
@@ -200,8 +184,8 @@ __device__ void intersection_normal(t_sphere *sphere,
 		}
 	}
 	//if( intersection exists )
-        if (intersection_object > -1)
-        {
+	if (intersection_object > -1)
+	{
 		intersection_normal(&spheres[intersection_object], &current_intersection, &ray);
 		//for each light source in the scene
 		for (i=0; i<n_lights; i++)
@@ -248,18 +232,13 @@ __device__ void intersection_normal(t_sphere *sphere,
 	return illumination;
 }
 
-
-
-
-
 __global__ void kernel(unsigned char * dev_image_red, 
-			unsigned char * dev_image_blue, 
-			unsigned char * dev_image_green, 
-			int  height, int width, 
-			t_sphere * dev_spheres, int dev_n_spheres, 
-			t_light * dev_lights, int dev_n_lights)
+	unsigned char * dev_image_blue, 
+	unsigned char * dev_image_green, 
+	int  height, int width, 
+	t_sphere * dev_spheres, int dev_n_spheres, 
+	t_light * dev_lights, int dev_n_lights)
 {
-
 	t_color illumination;
 	t_ray ray;
 	t_pixel pixel;
@@ -267,7 +246,7 @@ __global__ void kernel(unsigned char * dev_image_red,
 	pixel.i = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate inside whole picture
 	pixel.j = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate inside whole picture
 
-	if (pixel.i>= width || pixel.j>=height)
+	if (pixel.i >= width || pixel.j >= height)
 	{
 		return;
 	}
@@ -275,12 +254,12 @@ __global__ void kernel(unsigned char * dev_image_red,
 	int idx = threadIdx.x + threadIdx.y * blockDim.x; //linear index inside a block
 
 	// is there a way to overcome warp divergence?
-	if (threadIdx.x ==0 && threadIdx.y==0)
+	if (threadIdx.x == 0 && threadIdx.y == 0)
 	{
 		n_spheres = dev_n_spheres;
 		n_lights = dev_n_lights;
 
-		y_dim = __fdiv_rn (BOX_SIZE, __fdiv_rn ( (float) width, (float) height ));
+		y_dim = __fdiv_rn(BOX_SIZE, __fdiv_rn((float)width, (float)height));
 
 		view_point.x = __fdiv_rn (X_DIM, 2.0);
 		view_point.y = __fdiv_rn (y_dim, 2.0); 
@@ -300,18 +279,17 @@ __global__ void kernel(unsigned char * dev_image_red,
 //		lights[threadIdx.x] = dev_lights[threadIdx.x];
 //	}
 
-	if (idx < n_spheres * int(sizeof(t_sphere)/sizeof(float)) )
+	if (idx < n_spheres * int(sizeof(t_sphere)/sizeof(float)))
 	{
-		( (float * )spheres )[idx] = ((float *)dev_spheres)[idx];
+		((float*)spheres )[idx] = ((float*)dev_spheres)[idx];
 	}
 	__syncthreads();
 
-	if (idx <n_lights * int(sizeof(t_light)/sizeof(float)) )
+	if (idx <n_lights * int(sizeof(t_light)/sizeof(float)))
 	{
-		( (float * )lights )[idx] = ((float *) dev_lights)[idx];
+		((float*)lights)[idx] = ((float*)dev_lights)[idx];
 	}
 	__syncthreads();
-    
 
 	//compute ray starting point and direction ;
 	compute_ray(&ray, &view_point, &pixel);
@@ -325,19 +303,15 @@ __global__ void kernel(unsigned char * dev_image_red,
 	if (illumination.blue>1.0)
 		illumination.blue=1.0;
 
-
 	idx = pixel.i + __mul24(width, pixel.j);
 
 	dev_image_red  [idx ]  = 
-		(unsigned char) round (__fmul_rn (RGB_MAX, illumination.red));
+		(unsigned char)round(__fmul_rn (RGB_MAX, illumination.red));
 
 	dev_image_green[ idx ]  = 
-		(unsigned char) round (__fmul_rn (RGB_MAX, illumination.green));
+		(unsigned char)round(__fmul_rn (RGB_MAX, illumination.green));
 
 	dev_image_blue [ idx ]  = 
-		(unsigned char) round (__fmul_rn (RGB_MAX, illumination.blue));
-
+		(unsigned char)round(__fmul_rn (RGB_MAX, illumination.blue));
 }
-
-
 
