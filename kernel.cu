@@ -251,10 +251,6 @@ __global__ void kernel(unsigned char * dev_image_red,
 	pixel.i = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate inside whole picture
 	pixel.j = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate inside whole picture
 
-	if (pixel.i >= width || pixel.j >= height)
-	{
-		return;
-	}
 	 
 	int idx = threadIdx.x + threadIdx.y * blockDim.x; //linear index inside a block
 
@@ -283,6 +279,12 @@ __global__ void kernel(unsigned char * dev_image_red,
 		((float*)lights)[idx] = ((float*)dev_lights)[idx];
 	}
 	__syncthreads();
+
+
+	if (pixel.i >= width || pixel.j >= height)
+	{
+		return;
+	}
 
 	//compute ray starting point and direction ;
 	compute_ray(&ray, &view_point, &pixel);
