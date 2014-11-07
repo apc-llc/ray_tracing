@@ -64,6 +64,12 @@ int main( int argc, char* argv[] )
 	unsigned char * pG = (unsigned char *) malloc( height*width );
 	unsigned char * pB = (unsigned char *) malloc( height*width );
 
+	if ( pR == NULL || pG == NULL || pB == NULL)
+	{
+		printf ("Malloc error. Exiting. \n");
+		return -1;
+	}
+
 	ray_trace(pR, pG, pB, height, width, n_spheres, n_lights);
 
 	BMP AnImage;

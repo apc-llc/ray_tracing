@@ -59,6 +59,14 @@ void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_l
 	curandGenerator_t gen;
 	float *devData, *hostData;
 	hostData = (float *)calloc(n, sizeof(float));
+
+	if ( hostData == NULL )
+	{
+		printf ("Malloc error. Exiting. \n");
+		exit(-1);
+	}
+
+
 	CUDA_CALL( cudaMalloc((void **)&devData, n*sizeof(float)) );
 
 	CURAND_CALL( curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT) );
@@ -118,7 +126,6 @@ void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_l
 #endif
 
 
-
 	CURAND_CALL( curandDestroyGenerator(gen) );
 	CUDA_CALL( cudaFree(devData) );
 	free(hostData);    
@@ -154,8 +161,13 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 	t_sphere * spheres = (t_sphere *) malloc (sizeof(t_sphere) * n_spheres);
 	t_light * lights = (t_light *) malloc (sizeof(t_light) * n_lights);
 
-	generate_scene(spheres, n_spheres, lights, n_lights);
+	if (lights == NULL || spheres == NULL)
+	{
+		printf ("Malloc error. Exiting.\n");
+		exit(-1);
+	}
 
+	generate_scene(spheres, n_spheres, lights, n_lights);
 
 
 #ifdef DEBUG
