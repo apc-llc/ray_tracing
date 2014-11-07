@@ -250,7 +250,6 @@ __global__ void kernel(unsigned char * dev_image_red,
 
 	pixel.i = blockIdx.x * blockDim.x + threadIdx.x; // x coordinate inside whole picture
 	pixel.j = blockIdx.y * blockDim.y + threadIdx.y; // y coordinate inside whole picture
-
 	 
 	int idx = threadIdx.x + threadIdx.y * blockDim.x; //linear index inside a block
 
@@ -300,19 +299,19 @@ __global__ void kernel(unsigned char * dev_image_red,
 
 	idx = pixel.i + __mul24(width, pixel.j);
 
-	if (illumination.red != 0.0f)
+	if ( !fequal(illumination.red, 0.0f) )
 	{
 		dev_image_red  [idx ]  = 
 			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.red));
 	}
 
-	if (illumination.green != 0.0f)
+	if ( !fequal(illumination.green, 0.0f) )
 	{
 		dev_image_green[ idx ]  = 
 			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.green));
 	}
 
-	if (illumination.blue != 0.0f)
+	if ( !fequal(illumination.blue, 0.0f) )
 	{
 		dev_image_blue [ idx ]  = 
 			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.blue));
