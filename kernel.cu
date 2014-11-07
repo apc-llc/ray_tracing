@@ -60,11 +60,11 @@ __device__ void compute_ray(t_ray* ray, t_vector* view_point, t_pixel* pixel)
 
 	ray->direction.x = 
 		__fdiv_rn(__fmul_rn(X_DIM, pixel->i), 
-			__mul24(blockDim.x, gridDim.x)) - __fdiv_rn(X_DIM, 2.0) ;
+			__mul24(blockDim.x, gridDim.x)) - __fdiv_rn(X_DIM, 2.0f) ;
 
 	ray->direction.y = 
 		__fdiv_rn(__fmul_rn(y_dim, pixel->j), 
-			__mul24(blockDim.y, gridDim.y)) - __fdiv_rn(y_dim, 2.0) ;
+			__mul24(blockDim.y, gridDim.y)) - __fdiv_rn(y_dim, 2.0f) ;
 
 	ray->direction.z = (float)DISTANCE;
 
@@ -79,7 +79,7 @@ __device__ void compute_reflected_ray(t_ray* reflected_ray, t_ray* incidence_ray
 	reflected_ray->origin=intersection->point;
 
 	dp1 = dotproduct(&intersection->normal, &incidence_ray->direction);
-	dp1 = __fmul_rn (2, dp1);
+	dp1 = __fmul_rn (2.0f, dp1);
 
 	vec_scale(dp1, &scaled_normal, &intersection->normal);
 	
@@ -159,7 +159,7 @@ __device__ void intersection_normal(t_sphere *sphere,
 __device__ t_color TraceRay(t_ray ray, int depth)
 {
 	t_ray ray_tmp;
-	t_color illumination={0.0, 0.0, 0.0};
+	t_color illumination={0.0f, 0.0f, 0.0f};
 	t_color tmp;
 
 	if (depth > DEPTH_MAX )
@@ -171,7 +171,7 @@ __device__ t_color TraceRay(t_ray ray, int depth)
 	int intersection_object = -1; // none
 	int k, i;
 
-	float visible = 1.0;
+	float visible = 1.0f;
 	float current_lambda = FLT_MAX; // maximum positive float
 	int count=0;
 
@@ -205,10 +205,10 @@ __device__ t_color TraceRay(t_ray ray, int depth)
 				{
 					if (count++ == 0)
 					{   
-						visible = 0.2; 
+						visible = 0.2f; 
 					}else
 					{   
-						visible = 0.0;
+						visible = 0.0f;
 					}   
 					break;
 				}
@@ -226,7 +226,7 @@ __device__ t_color TraceRay(t_ray ray, int depth)
 		}
 		compute_reflected_ray(&ray_tmp, &ray, &current_intersection);
 
-		tmp = TraceRay(ray_tmp, depth+1 );
+		tmp = TraceRay(ray_tmp, depth + 1 );
 
 		illumination.red   = __fadd_rn (illumination.red,  tmp.red);
 		illumination.blue  = __fadd_rn (illumination.blue, tmp.blue);
@@ -266,24 +266,11 @@ __global__ void kernel(unsigned char * dev_image_red,
 
 		y_dim = __fdiv_rn(BOX_SIZE, __fdiv_rn((float)width, (float)height));
 
-		view_point.x = __fdiv_rn (X_DIM, 2.0);
-		view_point.y = __fdiv_rn (y_dim, 2.0); 
+		view_point.x = __fdiv_rn (X_DIM, 2.0f);
+		view_point.y = __fdiv_rn (y_dim, 2.0f); 
 		view_point.z = 0; 
 	}
 	__syncthreads();
-
-//	if (threadIdx.x < n_spheres && threadIdx.y==0 )
-//	{
-//		spheres[threadIdx.x].center = dev_spheres[threadIdx.x].center;
-//		spheres[threadIdx.x].radius = dev_spheres[threadIdx.x].radius;
-//		spheres[threadIdx.x].red    = dev_spheres[threadIdx.x].red;
-//		spheres[threadIdx.x].green  = dev_spheres[threadIdx.x].green;
-//		spheres[threadIdx.x].blue   = dev_spheres[threadIdx.x].blue;
-//	}
-//	if (threadIdx.x <n_lights && threadIdx.y==0)
-//	{
-//		lights[threadIdx.x] = dev_lights[threadIdx.x];
-//	}
 
 	if (idx < n_spheres * int(sizeof(t_sphere)/sizeof(float)))
 	{
@@ -302,28 +289,28 @@ __global__ void kernel(unsigned char * dev_image_red,
 	illumination = TraceRay(ray, 0) ;
 	//pixel color = illumination tone mapped to displayable range ;
 
-	if (illumination.red>1.0)
-		illumination.red=1.0;
-	if (illumination.green>1.0)
-		illumination.green=1.0;
-	if (illumination.blue>1.0)
-		illumination.blue=1.0;
+	if (illumination.red>1.0f)
+		illumination.red=1.0f;
+	if (illumination.green>1.0f)
+		illumination.green=1.0f;
+	if (illumination.blue>1.0f)
+		illumination.blue=1.0f;
 
 	idx = pixel.i + __mul24(width, pixel.j);
 
-	if (illumination.red != 0.0)
+	if (illumination.red != 0.0f)
 	{
 		dev_image_red  [idx ]  = 
 			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.red));
 	}
 
-	if (illumination.green != 0.0)
+	if (illumination.green != 0.0f)
 	{
 		dev_image_green[ idx ]  = 
 			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.green));
 	}
 
-	if (illumination.blue != 0.0)
+	if (illumination.blue != 0.0f)
 	{
 		dev_image_blue [ idx ]  = 
 			(unsigned char)round(__fmul_rn (RGB_MAX, illumination.blue));
