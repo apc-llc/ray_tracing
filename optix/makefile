@@ -4,7 +4,7 @@ include ../makefile.in
 
 all: ray_tracing_optix
 
-OPT = -g -O0
+OPT = -g -O3
 
 ray_tracing_optix: ray_tracing_optix.o constantbg.ptx normal_shader.ptx pinhole_camera.ptx sphere.ptx EasyBMP.o
 	$(NVCC) -arch=sm_$(ARCH) $(filter %.o, $^) -o $@ -L$(OPTIX)/lib64 -loptix -Xlinker -rpath=$(OPTIX)/lib64 -L$(OPTIX)/SDK-precompiled-samples -lsutil -Xlinker -rpath=$(OPTIX)/SDK-precompiled-samples

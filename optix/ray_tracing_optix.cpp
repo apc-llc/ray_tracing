@@ -1,11 +1,17 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cuda_runtime.h>
 #include <optix.h>
 #include <sutil.h>
 #include <optix_world.h>
 
 #include "EasyBMP.h"
+
+#define CUDA_CALL(x) do { cudaError_t err = x; if (( err ) != cudaSuccess ) { \
+	printf ("Error \"%s\" at %s :%d \n" , cudaGetErrorString(err), \
+			__FILE__ , __LINE__ ) ; exit(-1);\
+}} while (0)
 
 typedef struct struct_BoxExtent
 {
@@ -319,6 +325,11 @@ int main(int argc, char* argv[])
 	printf ("Picture size is width=%d  height=%d \n", width, height);
 #endif
 
+	cudaEvent_t start = 0, stop = 0;
+	CUDA_CALL( cudaEventCreate (&start) );
+	CUDA_CALL( cudaEventCreate (&stop) );
+	CUDA_CALL( cudaEventRecord (start, 0) );
+
     // Create our objects and set state
     RTcontext context;
     RT_CHECK_ERROR( rtContextCreate( &context ) );
@@ -340,6 +351,14 @@ int main(int argc, char* argv[])
 	RT_CHECK_ERROR( rtContextValidate( context ) );
 	RT_CHECK_ERROR( rtContextCompile( context ) );
 	RT_CHECK_ERROR( rtContextLaunch2D( context, 0, width, height ) );
+
+	CUDA_CALL( cudaEventRecord (stop, 0) );
+	CUDA_CALL( cudaEventSynchronize(stop) );
+
+	float gpuTime = 0.0f;
+	CUDA_CALL( cudaEventElapsedTime (&gpuTime, start, stop) );
+
+	printf("OptiX ray tracing time: %.2f milliseconds\n", gpuTime);
 
     // Display image
 	writeBMP( context, argv[5], output_buffer_obj );
