@@ -4,14 +4,13 @@ using namespace optix;
 
 struct BasicLight
 {
- optix::float3 pos;
- optix::float3 color;
- int casts_shadow;
- };
+	optix::float3 pos;
+	optix::float3 color;
+	int casts_shadow;
+};
 
 rtBuffer<float4> spheres;
 rtBuffer<float3> spheres_colors;
-
 
 rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, ); 
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
@@ -20,11 +19,8 @@ rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 
 RT_PROGRAM void intersect(int primIdx)
 {
-	int num_spheres=spheres.size();
-	int i;
-	
 	#pragma unroll
-	for (i=0; i<num_spheres;i++)
+	for (int i = 0, num_spheres = spheres.size(); i < num_spheres; i++)
 	{
 		const float3 center = make_float3(spheres[i]);
 	
@@ -42,41 +38,34 @@ RT_PROGRAM void intersect(int primIdx)
 			float root1 = (-b - sdisc);
 	
 			if (rtPotentialIntersection(root1))
-			{
-					
+			{					
 				shading_normal = geometric_normal = (O + (root1 )*D)/radius;
 				color_normal=spheres_colors[i];
 				rtReportIntersection(0);
 			}
 		}
 	}
-	return;
 }
 
 RT_PROGRAM void bounds(int, float result[6])
 {
-	int num_spheres=spheres.size();
-	int i;
 	#pragma unroll
-	for (i=0; i<num_spheres;i++)
+	for (int i = 0, num_spheres = spheres.size(); i < num_spheres; i++)
 	{
-		const float3 center = make_float3(spheres[i]);
-		
+		const float3 center = make_float3(spheres[i]);		
 		const float radius = spheres[i].w;
 
 		optix::Aabb* aabb = (optix::Aabb*)result;
 
 		if (radius <= 0.0f || isinf(radius))
 		{
-			aabb->invalidate();
-			
+			aabb->invalidate();			
 		}
 		else 
 		{
-		aabb->m_min = center - make_float3(radius);
-		aabb->m_max = center + make_float3(radius);
+			aabb->m_min = center - make_float3(radius);
+			aabb->m_max = center + make_float3(radius);
 		}
 	}
-	return;
 }
 

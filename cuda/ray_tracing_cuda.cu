@@ -1,24 +1,14 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-
-#include <cuda.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 #include <curand_kernel.h>
-#include <stdio.h>
-
-#include <math.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <unistd.h>
 
 #include "debug.h"
-#include "ray_tracing.h"
-
 #include "kernel.h"
+#include "EasyBMP.h"
 
+#define ENABLE_CHECK
 
 #define CUDA_CALL(x) do { cudaError_t err = x; if (( err ) != cudaSuccess ) { \
 	printf ("Error \"%s\" at %s :%d \n" , cudaGetErrorString(err), \
@@ -29,26 +19,19 @@
 	printf ("Error at %s :%d \n" , __FILE__ , __LINE__ ) ;\
 	exit(-1); }} while (0)
 
-
-
-
-//Round a / b to nearest higher integer value
+// Round a / b to nearest higher integer value
 inline int iDivUp(int a, int b)
 {
     return (a % b != 0) ? (a / b + 1) : (a / b);
 }
 
-//Align a to nearest higher multiple of b
+// Align a to nearest higher multiple of b
 inline int iAlignUp(int a, int b)
 {
     return (a % b != 0) ? (a - a % b + b) : a;
 }
 
-
-//#define INITIALIZE_HACK
-
-
-void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_lights)
+static void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_lights)
 {
 	int n_random_coord = n_spheres * 3  + n_lights * 3;
 	int n_random_rad = n_spheres;
@@ -66,7 +49,6 @@ void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_l
 		exit(-1);
 	}
 
-
 	CUDA_CALL( cudaMalloc((void **)&devData, n*sizeof(float)) );
 
 	CURAND_CALL( curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT) );
@@ -75,8 +57,8 @@ void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_l
 	CURAND_CALL( curandGenerateUniform(gen, devData, n) );
 	CUDA_CALL( cudaMemcpy(hostData, devData, n * sizeof(float), cudaMemcpyDeviceToHost) );
 	
-	int j=0;
-	for (int i=0; i<n_spheres; i++)
+	int j = 0;
+	for (int i = 0; i < n_spheres; i++)
 	{
 		spheres[i].center.x = hostData[j + 0] * BOX_SIZE ;
 		spheres[i].center.y = hostData[j + 1] * BOX_SIZE ;
@@ -86,10 +68,10 @@ void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_l
 		spheres[i].red   = hostData[j + 4] / (DEPTH_MAX-3);
 		spheres[i].green = hostData[j + 5] / (DEPTH_MAX-3);
 		spheres[i].blue  = hostData[j + 6] / (DEPTH_MAX-3);
-		j+=7;
+		j += 7;
 	}
 
-	for (int i=0; i<n_lights; i++)
+	for (int i = 0; i < n_lights; i++)
 	{
 		lights[i].x = hostData[j + 0] * BOX_SIZE; 
 		lights[i].y = hostData[j + 1] * BOX_SIZE; 
@@ -97,51 +79,14 @@ void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, int n_l
 		j+=3; 
 	}
 
-
-
-#ifdef INITIALIZE_HACK
-	spheres[0].center.x=9.746 ;
-	spheres[0].center.y=7.0 ;
-	spheres[0].center.z=29.0 ;
-	spheres[0].radius=0.815 ;
-	spheres[0].red=0.683 ;
-	spheres[0].green=0.133 ;
-	spheres[0].blue=0.403  ;
-
-	spheres[1].center.x=3.372 ;
-	spheres[1].center.y=3.0 ;
-	spheres[1].center.z=29.0 ;
-	spheres[1].radius=2.810 ;
-	spheres[1].red=0.305 ;
-	spheres[1].green=0.156 ;
-	spheres[1].blue=0.199  ;
-
-	lights[0].x=15.878 ;
-	lights[0].y=3.0 ;
-	lights[0].z=29.0 ;
-
-//	lights[1].x=6.518 ;
-//	lights[1].y=6.930 ;
-//	lights[1].z=31.367 ;
-#endif
-
-
 	CURAND_CALL( curandDestroyGenerator(gen) );
 	CUDA_CALL( cudaFree(devData) );
 	free(hostData);    
 }
 
-
-
-
-void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB, 
+static void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB, 
 				int height, int width, int n_spheres, int n_lights)
 {
-	cudaEvent_t start=0, stop=0;
-        float gpuTime = 0.0f;
-
-	cudaError_t err;
-
 //#define STACK_INCREASE
 #ifdef STACK_INCREASE 
 	size_t stack=0;
@@ -155,9 +100,6 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 	//cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 	//cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
 
-	CUDA_CALL (cudaEventCreate (&start) );
-        CUDA_CALL (cudaEventCreate (&stop) );
-
 	t_sphere * spheres = (t_sphere *) malloc (sizeof(t_sphere) * n_spheres);
 	t_light * lights = (t_light *) malloc (sizeof(t_light) * n_lights);
 
@@ -168,7 +110,6 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 	}
 
 	generate_scene(spheres, n_spheres, lights, n_lights);
-
 
 #ifdef DEBUG
 	print_spheres(spheres, n_spheres);
@@ -196,6 +137,9 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 	CUDA_CALL( cudaMemset(dev_image_green, 0, height * width *sizeof(unsigned char)) );
 	CUDA_CALL( cudaMemset(dev_image_blue,  0, height * width *sizeof(unsigned char)) );
 
+	cudaEvent_t start = 0, stop = 0;
+	CUDA_CALL (cudaEventCreate (&start) );
+	CUDA_CALL (cudaEventCreate (&stop) );
 	CUDA_CALL( cudaEventRecord (start, 0) );
 
 	dim3 block(BLOCK_SIZE_X, BLOCK_SIZE_Y, 1);
@@ -208,23 +152,19 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 
 	kernel<<<grid,block>>>(dev_image_red, dev_image_blue, dev_image_green, 
 			height, width, dev_spheres, n_spheres, dev_lights, n_lights); 
-
-	err = cudaGetLastError(); 
-	if (err != cudaSuccess) 
-	{
-		printf( "%s \n", cudaGetErrorString( err ) );
-	}
+	CUDA_CALL( cudaGetLastError() );
 
 	CUDA_CALL( cudaMemcpy(pR, dev_image_red,  height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost) );
 	CUDA_CALL( cudaMemcpy(pB, dev_image_blue, height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost) );
 	CUDA_CALL( cudaMemcpy(pG, dev_image_green,height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost) );
 
 	CUDA_CALL( cudaEventRecord (stop, 0) );
-        CUDA_CALL( cudaEventSynchronize(stop) );
-        CUDA_CALL( cudaEventElapsedTime (&gpuTime, start, stop) );
+	CUDA_CALL( cudaEventSynchronize(stop) );
 
-	printf("GPU ray tracing  \n");
-        printf("time spent executing on GPU: %.2f milliseconds\n", gpuTime);
+	float gpuTime = 0.0f;
+	CUDA_CALL( cudaEventElapsedTime (&gpuTime, start, stop) );
+
+	printf("CUDA ray tracing time: %.2f milliseconds\n", gpuTime);
 
 	CUDA_CALL( cudaFree(dev_image_red) );
 	CUDA_CALL( cudaFree(dev_image_green) );
@@ -238,8 +178,87 @@ void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB,
 
 	free (spheres);
 	free (lights);
-
-	return ;
 }
 
+int main( int argc, char* argv[] )
+{
+	if (argc != 6)
+	{
+		printf("Usage: %s <n_spheres> <n_lights> <width> <height> <bmp_filename> \n", argv[0]);
+		return -1; 
+	}
+
+	int n_spheres = atoi( argv[1]);
+#ifdef ENABLE_CHECK
+	if (n_spheres < 5 || n_spheres > 10)
+	{
+		printf ("n_spheres is out of range [5:10]\n");
+		return -1;
+	}
+#endif
+
+	int n_lights = atoi( argv[2]);
+#ifdef ENABLE_CHECK
+	if (n_lights < 1 || n_lights > 2)
+	{
+		printf ("n_lights is out of range [1:2]\n");
+		return -1;
+	}
+#endif
+
+	int width = atoi( argv[3]);
+#ifdef ENABLE_CHECK
+	if (width < 800 || width > 1920)
+	{
+		printf ("width is out of range [800:1920]\n");
+		return -1;
+	}
+#endif
+
+	int height = atoi( argv[4]);
+#ifdef ENABLE_CHECK
+	if (height < 600 || height > 1080)
+	{
+		printf ("height is out of range [600:1080]\n");
+		return -1;
+	}
+#endif
+
+#ifdef DEBUG
+	printf ("Picture size is width=%d  height=%d \n", width, height);
+#endif
+
+	unsigned char * pR = (unsigned char *) malloc( height*width );
+	unsigned char * pG = (unsigned char *) malloc( height*width );
+	unsigned char * pB = (unsigned char *) malloc( height*width );
+
+	if ( pR == NULL || pG == NULL || pB == NULL)
+	{
+		printf ("Malloc error. Exiting. \n");
+		return -1;
+	}
+
+	ray_trace(pR, pG, pB, height, width, n_spheres, n_lights);
+
+	BMP AnImage;
+	AnImage.SetSize(width, height);
+	for (int i = 0; i < width; i++)
+	{
+		for (int j = 0; j < height; j++)
+		{
+			RGBApixel pixel;
+			pixel.Red = pR [ j * width + i ];
+			pixel.Green = pG [ j * width + i ];
+			pixel.Blue = pB [ j * width + i ];
+			AnImage.SetPixel( i , j , pixel );
+		}
+	}
+	AnImage.WriteToFile(argv[5]);
+
+	free(pR);
+	free(pG);
+	free(pB);
+	
+	return 0;
+}
 
