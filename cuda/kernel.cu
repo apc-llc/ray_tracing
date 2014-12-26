@@ -263,19 +263,30 @@ __global__ void kernel(unsigned char * dev_image_red,
 
 		view_point.x = __fdiv_rn (X_DIM, 2.0f);
 		view_point.y = __fdiv_rn (y_dim, 2.0f); 
-		view_point.z = 0; 
+		view_point.z = 0.0f; 
 	}
 	__syncthreads();
 
-	if (idx < n_spheres * int(sizeof(t_sphere)/sizeof(float)))
-	{
-		((float*)spheres )[idx] = ((float*)dev_spheres)[idx];
-	}
-	__syncthreads();
+	int n1 = n_spheres * int(sizeof(t_sphere) / sizeof(float));
+	// n1 is the number of floats in spheres array;
+	int n2 = n_lights * int(sizeof(t_light) / sizeof(float));
+	// n2 is the number of floats in lights array;
+	int n3 = ( idx < n1 ) ? 0 : 1;
+	// n3 is the index inside the float* arrays (bellow)
+	int n4 = (idx < n1 ) ? idx : idx -n1;
 
-	if (idx <n_lights * int(sizeof(t_light)/sizeof(float)))
+	float * dst_arr[] = { (float*)spheres, (float*)lights};
+	float * src_arr[] = { (float*)dev_spheres, (float*)dev_lights};
+
+	float * dst;
+	float * src;
+
+	if (idx < n1 + n2 )
 	{
-		((float*)lights)[idx] = ((float*)dev_lights)[idx];
+		dst = dst_arr [n3];
+		src = src_arr [n3];
+
+		dst[n4] = src[n4];
 	}
 	__syncthreads();
 
