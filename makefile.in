@@ -1,0 +1,13 @@
+ARCH = 30
+
+NUM_SPHERES = 10
+NUM_LIGHTS = 2
+WIDTH = 1920
+HEIGHT = 1080
+FILE_NAME = output.bmp
+
+BLOCK_SIZE_X = 32
+BLOCK_SIZE_Y = 16
+
+OPTIX = /opt/optix
+NVCC = nvcc
