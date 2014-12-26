@@ -134,13 +134,30 @@ static void generateScene(optix::float4 * coords, optix::float3 * colors, int n_
 
 	CURAND_CALL( curandGenerateUniform(gen, devData, n) );
 	CUDA_CALL( cudaMemcpy(hostData, devData, n * sizeof(float), cudaMemcpyDeviceToHost) );
+
+	float x_pos = 0.9f;
+	float y_pos = BOX_SIZE / 5.0;
+
+	for (int i = 0; i < n_spheres; i++)
+	{
+		coords[i].x = x_pos;
+		coords[i].y = y_pos;
+
+		x_pos += BOX_SIZE / (n_spheres / 2.0);
+
+		if  ( x_pos > BOX_SIZE - 0.9)
+		{
+			x_pos = 0.9f;
+			y_pos = BOX_SIZE / 2.5 ;
+		}
+	}
 	
 	int j = 0;
 	for (int i = 0; i < n_spheres; i++)
 	{
-		coords[i].x = hostData[j++] * BOX_SIZE ;
-		coords[i].y = hostData[j++] * BOX_SIZE ;
-		coords[i].z = hostData[j++] * BOX_SIZE + DISTANCE ;
+		coords[i].x += 2.0 * (hostData[j++] - 0.5);
+		coords[i].y += 2.0 * (hostData[j++] - 0.5);
+		coords[i].z = hostData[j++] * BOX_SIZE_Z + DISTANCE;
 		coords[i].w = hostData[j++] * RADIUS_MAX + RADIUS_MIN;
 		colors[i].x = hostData[j++] / (DEPTH_MAX - 3);
 		colors[i].y = hostData[j++] / (DEPTH_MAX - 3);
@@ -149,9 +166,9 @@ static void generateScene(optix::float4 * coords, optix::float3 * colors, int n_
 
 	for (int i = 0; i < n_lights; i++)
 	{
-		lights[i].pos.x = hostData[j++] * BOX_SIZE; 
-		lights[i].pos.y = hostData[j++] * BOX_SIZE; 
-		lights[i].pos.z = hostData[j++] * DISTANCE + BOX_SIZE / 2.0; 
+		lights[i].pos.x = (hostData[j++] - 0.5) * BOX_SIZE * 6;
+		lights[i].pos.y = (hostData[j++] - 0.5) * BOX_SIZE * 6;
+		lights[i].pos.z = hostData[j++] * DISTANCE/2.0;
 	}
 
 	CURAND_CALL( curandDestroyGenerator(gen) );

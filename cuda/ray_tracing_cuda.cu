@@ -47,13 +47,30 @@ static void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, 
 
 	CURAND_CALL( curandGenerateUniform(gen, devData, n) );
 	CUDA_CALL( cudaMemcpy(hostData, devData, n * sizeof(float), cudaMemcpyDeviceToHost) );
+
+	float x_pos = 0.9f;
+	float y_pos = BOX_SIZE / 5.0;
+
+	for (int i = 0; i < n_spheres; i++)
+	{
+		spheres[i].center.x = x_pos;
+		spheres[i].center.y = y_pos;
+
+		x_pos += BOX_SIZE / (n_spheres / 2.0);
+
+		if  ( x_pos > BOX_SIZE - 0.9)
+		{
+			x_pos = 0.9f;
+			y_pos = BOX_SIZE / 2.5 ;
+		}
+	}
 	
 	int j = 0;
 	for (int i = 0; i < n_spheres; i++)
 	{
-		spheres[i].center.x = hostData[j++] * BOX_SIZE ;
-		spheres[i].center.y = hostData[j++] * BOX_SIZE ;
-		spheres[i].center.z = hostData[j++] * BOX_SIZE + DISTANCE ;
+		spheres[i].center.x += 2.0 * (hostData[j++] - 0.5);
+		spheres[i].center.y += 2.0 * (hostData[j++] - 0.5);
+		spheres[i].center.z = hostData[j++] * BOX_SIZE_Z + DISTANCE;
 		spheres[i].radius = hostData[j++] * RADIUS_MAX + RADIUS_MIN;
 		spheres[i].red   = hostData[j++] / (DEPTH_MAX - 3);
 		spheres[i].green = hostData[j++] / (DEPTH_MAX - 3);
@@ -62,9 +79,9 @@ static void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, 
 
 	for (int i = 0; i < n_lights; i++)
 	{
-		lights[i].x = hostData[j++] * BOX_SIZE; 
-		lights[i].y = hostData[j++] * BOX_SIZE; 
-		lights[i].z = hostData[j++] * DISTANCE + BOX_SIZE / 2.0; 
+		lights[i].x = (hostData[j++] - 0.5) * BOX_SIZE * 6;
+		lights[i].y = (hostData[j++] - 0.5) * BOX_SIZE * 6;
+		lights[i].z = hostData[j++] * DISTANCE/2.0;
 	}
 
 	CURAND_CALL( curandDestroyGenerator(gen) );

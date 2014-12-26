@@ -3,15 +3,16 @@
 
 #define DISTANCE 25.0
 
-#define BOX_SIZE 20.0
+#define BOX_SIZE   20.0
+#define BOX_SIZE_Z  1.0
 
 #define DEPTH_MAX 5
 #define SPHERES_MAX 10
 #define LIGHTS_MAX 2
 
 #define RGB_MAX  255
-#define RADIUS_MAX 2.0
-#define RADIUS_MIN 2.0
+#define RADIUS_MAX 1.2
+#define RADIUS_MIN 0.5
 
 #define FORCE_ALIGNING
 
