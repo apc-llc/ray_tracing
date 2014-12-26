@@ -2,16 +2,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <cuda_runtime.h>
+#include <curand_kernel.h>
 #include <optix.h>
 #include <sutil.h>
 #include <optix_world.h>
 
 #include "EasyBMP.h"
-
-#define CUDA_CALL(x) do { cudaError_t err = x; if (( err ) != cudaSuccess ) { \
-	printf ("Error \"%s\" at %s :%d \n" , cudaGetErrorString(err), \
-			__FILE__ , __LINE__ ) ; exit(-1);\
-}} while (0)
+#include "types.h"
 
 typedef struct struct_BoxExtent
 {
@@ -83,9 +80,9 @@ static void createContext( RTcontext* context, RTbuffer* output_buffer_obj )
 	RT_CHECK_ERROR2( rtContextDeclareVariable( *context, "V" , &V) );
 	RT_CHECK_ERROR2( rtContextDeclareVariable( *context, "W" , &W) );
 
-	cam_eye[0]= 0.0f;  cam_eye[1]= 0.0f;  cam_eye[2]= 5.0f;
-	lookat[0] = 0.0f;  lookat[1] = 0.0f;  lookat[2] = 0.0f;
-	up[0]     = 0.0f;  up[1]     = 1.0f;  up[2]     = 0.0f;
+	cam_eye[0]= 10.0f;  cam_eye[1]= 5.625f;  cam_eye[2]=  0.0f;
+	lookat[0] = 5.0f;  lookat[1] = 5.625f;  lookat[2] = 25.f;
+	up[0]     = 0.0f;  up[1]     = -1.0f;  up[2]     = 0.0f;
 	hfov      = 60.0f;
 
 	aspect_ratio = (float)width/(float)height;
@@ -110,21 +107,19 @@ static void createContext( RTcontext* context, RTbuffer* output_buffer_obj )
 	RT_CHECK_ERROR2( rtContextSetMissProgram( *context, 0, miss_program ) );
 }
 
-static void createGeometry( RTcontext context, RTgeometry* sphere )
+static void createGeometry( RTcontext context, RTgeometry* geometry, int n_spheres, int n_lights )
 {
-	int num_spheres=2;
-	int num_lightSources = 2;
-	RT_CHECK_ERROR( rtGeometryCreate( context, sphere ) );
-	RT_CHECK_ERROR( rtGeometrySetPrimitiveCount( *sphere, 1u ) );
+	RT_CHECK_ERROR( rtGeometryCreate( context, geometry ) );
+	RT_CHECK_ERROR( rtGeometrySetPrimitiveCount( *geometry, 1u ) );
 
 	RTprogram  intersection_program;
 	RTprogram  bounding_box_program;
 	RT_CHECK_ERROR( rtProgramCreateFromPTXFile( context, "sphere.ptx", "bounds", &bounding_box_program) );
-	RT_CHECK_ERROR( rtGeometrySetBoundingBoxProgram( *sphere, bounding_box_program ) );
+	RT_CHECK_ERROR( rtGeometrySetBoundingBoxProgram( *geometry, bounding_box_program ) );
 	RT_CHECK_ERROR( rtProgramCreateFromPTXFile( context, "sphere.ptx", "intersect", &intersection_program) );
-	RT_CHECK_ERROR( rtGeometrySetIntersectionProgram( *sphere, intersection_program ) );
+	RT_CHECK_ERROR( rtGeometrySetIntersectionProgram( *geometry, intersection_program ) );
 
-	RTvariable spheres,spheres_colors, lights;
+	RTvariable spheres, spheres_colors, lights;
 	optix::float4 * coords;
 	optix::float3 * colors;
 
@@ -135,47 +130,78 @@ static void createGeometry( RTcontext context, RTgeometry* sphere )
 	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_lights));
 	RT_CHECK_ERROR(rtBufferSetFormat(buff_lights, RT_FORMAT_USER));
 	RT_CHECK_ERROR(rtBufferSetElementSize(buff_lights, sizeof(BasicLight)));
-	RT_CHECK_ERROR(rtBufferSetSize1D(buff_lights, num_lightSources));
+	RT_CHECK_ERROR(rtBufferSetSize1D(buff_lights, n_lights));
 	RT_CHECK_ERROR(rtContextDeclareVariable( context, "lights", &lights ) );
 	RT_CHECK_ERROR(rtVariableSetObject( lights, buff_lights ) );
 	RT_CHECK_ERROR(rtBufferMap(buff_lights, (void**)&lightsPtr));
 
 	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_coords));
 	RT_CHECK_ERROR(rtBufferSetFormat(buff_coords, RT_FORMAT_FLOAT4));
-	RT_CHECK_ERROR(rtBufferSetSize1D(buff_coords, num_spheres));
+	RT_CHECK_ERROR(rtBufferSetSize1D(buff_coords, n_spheres));
 	RT_CHECK_ERROR( rtContextDeclareVariable( context, "spheres", &spheres ) );
 	RT_CHECK_ERROR( rtVariableSetObject( spheres, buff_coords ) );
 	RT_CHECK_ERROR(rtBufferMap(buff_coords, (void**)&coords));
 
 	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_colors));
 	RT_CHECK_ERROR(rtBufferSetFormat(buff_colors, RT_FORMAT_FLOAT3));
-	RT_CHECK_ERROR(rtBufferSetSize1D(buff_colors, num_spheres));
+	RT_CHECK_ERROR(rtBufferSetSize1D(buff_colors, n_spheres));
 	RT_CHECK_ERROR( rtContextDeclareVariable( context, "spheres_colors", &spheres_colors ) );
 	RT_CHECK_ERROR( rtVariableSetObject( spheres_colors, buff_colors ) );
 	RT_CHECK_ERROR(rtBufferMap(buff_colors, (void**)&colors));
-	for (int i = 0; i < num_spheres; i++)
-	{
-		coords[i].x = i * 0.6;
-		coords[i].y = i * 0.6;
-		coords[i].z = 0;
-		coords[i].w = 0.25f;
-		colors[i].x = i * 0.5f;
-		colors[i].y = 1 - i * 0.5f;
-		colors[i].z = 0;	
-	}
-	lightsPtr[0].pos.x = -10.0f;
-	lightsPtr[0].pos.y = -10.0f;
-	lightsPtr[0].pos.z = 0.0f;
 
-	lightsPtr[1].pos.x = 10.0f;
-	lightsPtr[1].pos.y = -10.0f;
-	lightsPtr[1].pos.z = 5.0f;
+	int n_random_coord = n_spheres * 3  + n_lights * 3;
+	int n_random_rad = n_spheres;
+	int n_random_colors = n_spheres * 3;
+
+	size_t n = n_random_coord + n_random_rad + n_random_colors;
+
+	curandGenerator_t gen;
+	float *hostData;
+	hostData = (float *)calloc(n, sizeof(float));
+
+	if (!hostData)
+	{
+		fprintf(stderr, "Malloc error, exiting\n");
+		exit(-1);
+	}
+
+	float *devData;
+	CUDA_CALL( cudaMalloc((void **)&devData, n*sizeof(float)) );
+
+	CURAND_CALL( curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT) );
+	CURAND_CALL( curandSetPseudoRandomGeneratorSeed(gen, (unsigned long long)time(NULL)) ); 
+
+	CURAND_CALL( curandGenerateUniform(gen, devData, n) );
+	CUDA_CALL( cudaMemcpy(hostData, devData, n * sizeof(float), cudaMemcpyDeviceToHost) );
+	
+	int j = 0;
+	for (int i = 0; i < n_spheres; i++)
+	{
+		coords[i].x = hostData[j++] * BOX_SIZE ;
+		coords[i].y = hostData[j++] * BOX_SIZE ;
+		coords[i].z = hostData[j++] * BOX_SIZE + DISTANCE ;
+		coords[i].w = hostData[j++] * RADIUS_MAX + RADIUS_MIN;
+		colors[i].x = hostData[j++] / (DEPTH_MAX - 3);
+		colors[i].y = hostData[j++] / (DEPTH_MAX - 3);
+		colors[i].z = hostData[j++] / (DEPTH_MAX - 3);
+	}
+
+	for (int i = 0; i < n_lights; i++)
+	{
+		lightsPtr[i].pos.x = hostData[j++] * BOX_SIZE; 
+		lightsPtr[i].pos.y = hostData[j++] * BOX_SIZE; 
+		lightsPtr[i].pos.z = hostData[j++] * DISTANCE + BOX_SIZE / 2.0; 
+	}
+
+	CURAND_CALL( curandDestroyGenerator(gen) );
+	CUDA_CALL( cudaFree(devData) );
+	free(hostData);
 
 	RT_CHECK_ERROR(rtBufferUnmap(buff_coords));
 	RT_CHECK_ERROR(rtBufferUnmap(buff_colors));
 	RT_CHECK_ERROR(rtBufferUnmap(buff_lights));
 
-	RTvariable Ka,Kd,Ks,phong_exp;
+	RTvariable Ka, Kd, Ks, phong_exp;
 	RT_CHECK_ERROR(rtContextDeclareVariable( context, "Ka", &Ka ) );
 	RT_CHECK_ERROR(rtContextDeclareVariable( context, "Kd", &Kd ) );
 	RT_CHECK_ERROR(rtContextDeclareVariable( context, "Ks", &Ks ) );
@@ -199,7 +225,7 @@ static void createMaterial( RTcontext context, RTmaterial* material )
 	RT_CHECK_ERROR( rtMaterialSetAnyHitProgram( *material, 1, ahp) );
 }
 
-static void createInstance( RTcontext context, RTgeometry sphere, RTmaterial material )
+static void createInstance( RTcontext context, RTgeometry geometry, RTmaterial material )
 {
 	RTgeometrygroup geometrygroup;
 	RTvariable top_object, top_shadower;
@@ -208,7 +234,7 @@ static void createInstance( RTcontext context, RTgeometry sphere, RTmaterial mat
 
 	// Create geometry instance
 	RT_CHECK_ERROR( rtGeometryInstanceCreate( context, &instance ) );
-	RT_CHECK_ERROR( rtGeometryInstanceSetGeometry( instance, sphere ) );
+	RT_CHECK_ERROR( rtGeometryInstanceSetGeometry( instance, geometry ) );
 	RT_CHECK_ERROR( rtGeometryInstanceSetMaterialCount( instance, 1 ) );
 	RT_CHECK_ERROR( rtGeometryInstanceSetMaterial( instance, 0, material ) );
 
@@ -322,7 +348,7 @@ int main(int argc, char* argv[])
 #endif
 
 #ifdef DEBUG
-	printf ("Picture size is width=%d  height=%d \n", width, height);
+	printf ("Picture size is width = %d  height = %d \n", width, height);
 #endif
 
 	cudaEvent_t start = 0, stop = 0;
@@ -340,12 +366,12 @@ int main(int argc, char* argv[])
 	RTbuffer output_buffer_obj;
 	createContext( &context, &output_buffer_obj );
 
-	RTgeometry sphere;
-	createGeometry( context, &sphere );
+	RTgeometry geometry;
+	createGeometry( context, &geometry, n_spheres, n_lights );
 
 	RTmaterial material;
 	createMaterial( context, &material);
-	createInstance( context, sphere, material );
+	createInstance( context, geometry, material );
 
 	// Run
 	RT_CHECK_ERROR( rtContextValidate( context ) );
