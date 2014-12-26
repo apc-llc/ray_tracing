@@ -15,6 +15,15 @@
 
 #define FORCE_ALIGNING
 
+#define CUDA_CALL(x) do { cudaError_t err = x; if (( err ) != cudaSuccess ) { \
+	printf ("Error \"%s\" at %s :%d \n" , cudaGetErrorString(err), \
+			__FILE__ , __LINE__ ) ; exit(-1);\
+}} while (0)
+
+#define CURAND_CALL(x) do { if (( x ) != CURAND_STATUS_SUCCESS ) {\
+	printf ("Error at %s :%d \n" , __FILE__ , __LINE__ ) ;\
+	exit(-1); }} while (0)
+
 typedef struct
 {
 	float x;
@@ -75,13 +84,6 @@ typedef struct
 t_color;
 
 #define t_light t_vector
-
-__global__ void kernel( unsigned char * dev_image_red, 
-			unsigned char * dev_image_blue, 
-			unsigned char * dev_image_green, 
-			int  height, int width, 
-			t_sphere * spheres, int n_spheres, 
-			t_light * lights, int n_lights);
 
 #endif // KERNEL_GPU_H
 
