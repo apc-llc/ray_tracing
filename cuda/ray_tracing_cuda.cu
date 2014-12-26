@@ -206,7 +206,7 @@ int main( int argc, char* argv[] )
 		if ((std::string)argv[1] == "random")
 			randomScene = true;
 
-	if (randomScene && (argc != 7))
+	if ((randomScene && (argc != 7)) || (argc == 1))
 	{
 		printf("Usage: %s random <n_spheres> <n_lights> <width> <height> <bmp_filename> \n", argv[0]);
 		return -1;
