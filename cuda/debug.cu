@@ -1,6 +1,5 @@
 #include <cstdio>
 #include "debug.h"
-#include "kernel.h"
 
 void print_array(unsigned char* p, int h, int w)
 {

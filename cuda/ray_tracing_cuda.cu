@@ -5,19 +5,10 @@
 #include <unistd.h>
 
 #include "debug.h"
-#include "kernel.h"
+#include "types.h"
 #include "EasyBMP.h"
 
 #define ENABLE_CHECK
-
-#define CUDA_CALL(x) do { cudaError_t err = x; if (( err ) != cudaSuccess ) { \
-	printf ("Error \"%s\" at %s :%d \n" , cudaGetErrorString(err), \
-			__FILE__ , __LINE__ ) ; exit(-1);\
-}} while (0)
-
-#define CURAND_CALL(x) do { if (( x ) != CURAND_STATUS_SUCCESS ) {\
-	printf ("Error at %s :%d \n" , __FILE__ , __LINE__ ) ;\
-	exit(-1); }} while (0)
 
 // Round a / b to nearest higher integer value
 inline int iDivUp(int a, int b)
@@ -43,9 +34,9 @@ static void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, 
 	float *devData, *hostData;
 	hostData = (float *)calloc(n, sizeof(float));
 
-	if ( hostData == NULL )
+	if (!hostData)
 	{
-		printf ("Malloc error. Exiting. \n");
+		fprintf(stderr, "Malloc error, exiting\n");
 		exit(-1);
 	}
 
@@ -60,23 +51,20 @@ static void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, 
 	int j = 0;
 	for (int i = 0; i < n_spheres; i++)
 	{
-		spheres[i].center.x = hostData[j + 0] * BOX_SIZE ;
-		spheres[i].center.y = hostData[j + 1] * BOX_SIZE ;
-		spheres[i].center.z = hostData[j + 2] * BOX_SIZE + DISTANCE ;
-		spheres[i].radius = hostData[j + 3] * RADIUS_MAX + RADIUS_MIN;
-
-		spheres[i].red   = hostData[j + 4] / (DEPTH_MAX-3);
-		spheres[i].green = hostData[j + 5] / (DEPTH_MAX-3);
-		spheres[i].blue  = hostData[j + 6] / (DEPTH_MAX-3);
-		j += 7;
+		spheres[i].center.x = hostData[j++] * BOX_SIZE ;
+		spheres[i].center.y = hostData[j++] * BOX_SIZE ;
+		spheres[i].center.z = hostData[j++] * BOX_SIZE + DISTANCE ;
+		spheres[i].radius = hostData[j++] * RADIUS_MAX + RADIUS_MIN;
+		spheres[i].red   = hostData[j++] / (DEPTH_MAX - 3);
+		spheres[i].green = hostData[j++] / (DEPTH_MAX - 3);
+		spheres[i].blue  = hostData[j++] / (DEPTH_MAX - 3);
 	}
 
 	for (int i = 0; i < n_lights; i++)
 	{
-		lights[i].x = hostData[j + 0] * BOX_SIZE; 
-		lights[i].y = hostData[j + 1] * BOX_SIZE; 
-		lights[i].z = hostData[j + 2] * DISTANCE + BOX_SIZE/2.0; 
-		j+=3; 
+		lights[i].x = hostData[j++] * BOX_SIZE; 
+		lights[i].y = hostData[j++] * BOX_SIZE; 
+		lights[i].z = hostData[j++] * DISTANCE + BOX_SIZE / 2.0; 
 	}
 
 	CURAND_CALL( curandDestroyGenerator(gen) );
@@ -84,8 +72,14 @@ static void generate_scene(t_sphere * spheres, int n_spheres, t_light * lights, 
 	free(hostData);    
 }
 
-static void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB, 
-				int height, int width, int n_spheres, int n_lights)
+__global__ void kernel(
+	unsigned char * dev_image_red, unsigned char * dev_image_blue,
+	unsigned char * dev_image_green, int height, int width,
+	t_sphere * spheres, int n_spheres, t_light * lights, int n_lights);
+
+static void ray_trace(
+	unsigned char * pR, unsigned char * pG, unsigned char * pB, 
+	int height, int width, int n_spheres, int n_lights)
 {
 //#define STACK_INCREASE
 #ifdef STACK_INCREASE 
@@ -105,7 +99,7 @@ static void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB
 
 	if (lights == NULL || spheres == NULL)
 	{
-		printf ("Malloc error. Exiting.\n");
+		fprintf(stderr, "Malloc error, exiting\n");
 		exit(-1);
 	}
 
@@ -118,6 +112,11 @@ static void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB
 
 	t_sphere * dev_spheres;
 	t_light * dev_lights;
+
+	cudaEvent_t start = 0, stop = 0;
+	CUDA_CALL (cudaEventCreate (&start) );
+	CUDA_CALL (cudaEventCreate (&stop) );
+	CUDA_CALL( cudaEventRecord (start, 0) );
 
 	CUDA_CALL( cudaMalloc((void **)&dev_spheres,  sizeof(t_sphere) * n_spheres ) );
 	CUDA_CALL( cudaMalloc((void **)&dev_lights,  sizeof(t_light) * n_lights ) );
@@ -137,17 +136,12 @@ static void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB
 	CUDA_CALL( cudaMemset(dev_image_green, 0, height * width *sizeof(unsigned char)) );
 	CUDA_CALL( cudaMemset(dev_image_blue,  0, height * width *sizeof(unsigned char)) );
 
-	cudaEvent_t start = 0, stop = 0;
-	CUDA_CALL (cudaEventCreate (&start) );
-	CUDA_CALL (cudaEventCreate (&stop) );
-	CUDA_CALL( cudaEventRecord (start, 0) );
-
 	dim3 block(BLOCK_SIZE_X, BLOCK_SIZE_Y, 1);
 	dim3 grid(iDivUp(width, block.x), iDivUp(height, block.y), 1);
 
 #ifdef DEBUG
-	printf ("Running kernel with block.x=%d block.y=%d \n", block.x, block.y);
-	printf ("Running kernel with grid.x=%d grid.y=%d \n", grid.x, grid.y);
+	printf ("Running kernel with block.x = %d block.y = %d \n", block.x, block.y);
+	printf ("Running kernel with grid.x = %d grid.y = %d \n", grid.x, grid.y);
 #endif
 
 	kernel<<<grid,block>>>(dev_image_red, dev_image_blue, dev_image_green, 
@@ -158,6 +152,13 @@ static void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB
 	CUDA_CALL( cudaMemcpy(pB, dev_image_blue, height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost) );
 	CUDA_CALL( cudaMemcpy(pG, dev_image_green,height * width *sizeof(unsigned char), cudaMemcpyDeviceToHost) );
 
+	CUDA_CALL( cudaFree(dev_image_red) );
+	CUDA_CALL( cudaFree(dev_image_green) );
+	CUDA_CALL( cudaFree(dev_image_blue) );
+
+	CUDA_CALL( cudaFree(dev_spheres) );
+	CUDA_CALL( cudaFree(dev_lights) );
+
 	CUDA_CALL( cudaEventRecord (stop, 0) );
 	CUDA_CALL( cudaEventSynchronize(stop) );
 
@@ -165,13 +166,6 @@ static void ray_trace(unsigned char * pR, unsigned char * pG, unsigned char * pB
 	CUDA_CALL( cudaEventElapsedTime (&gpuTime, start, stop) );
 
 	printf("CUDA ray tracing time: %.2f milliseconds\n", gpuTime);
-
-	CUDA_CALL( cudaFree(dev_image_red) );
-	CUDA_CALL( cudaFree(dev_image_green) );
-	CUDA_CALL( cudaFree(dev_image_blue) );
-
-	CUDA_CALL( cudaFree(dev_spheres) );
-	CUDA_CALL( cudaFree(dev_lights) );
 
 	CUDA_CALL( cudaEventDestroy (start) );
 	CUDA_CALL( cudaEventDestroy (stop) );
@@ -225,7 +219,7 @@ int main( int argc, char* argv[] )
 #endif
 
 #ifdef DEBUG
-	printf ("Picture size is width=%d  height=%d \n", width, height);
+	printf ("Picture size is width = %d  height = %d \n", width, height);
 #endif
 
 	unsigned char * pR = (unsigned char *) malloc( height*width );
@@ -234,7 +228,7 @@ int main( int argc, char* argv[] )
 
 	if ( pR == NULL || pG == NULL || pB == NULL)
 	{
-		printf ("Malloc error. Exiting. \n");
+		fprintf(stderr, "Malloc error, exiting\n");
 		return -1;
 	}
 

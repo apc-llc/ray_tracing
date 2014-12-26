@@ -1,7 +1,7 @@
 #ifndef MYDEBUG_H
 #define MYDEBUG_H
 
-#include "kernel.h"
+#include "types.h"
 
 void print_array(unsigned char* p, int h, int w);
 void print_array_float(float* p, int h, int w);

@@ -1,6 +1,6 @@
-#include "kernel.h"
 #include <float.h>
 #include <stdio.h>
+#include "types.h"
 
 #define X_DIM BOX_SIZE
 
