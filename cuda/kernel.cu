@@ -173,7 +173,6 @@ __device__ t_color TraceRay(t_ray ray, int depth)
 
 	float visible = 1.0f;
 	float current_lambda = FLT_MAX; // maximum positive float
-	int count=0;
 
 	//find closest ray object / intersection ;
 	for (k=0; k<n_spheres; k++)
@@ -203,13 +202,7 @@ __device__ t_color TraceRay(t_ray ray, int depth)
 					(&ray_tmp, &spheres[k], &intersection)
 				   )
 				{
-					if (count++ == 0)
-					{   
-						visible = 0.2f; 
-					}else
-					{   
-						visible = 0.0f;
-					}   
+					visible -= 0.5f;
 					break;
 				}
 			}
