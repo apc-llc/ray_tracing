@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 		stringstream s;
 		s << "cd cuda && ./ray_tracing_cuda " << args;
 		string cmd = s.str();
-		cout << cmd << endl;
+		//cout << cmd << endl;
 		int result = system(cmd.c_str());
 		if (result) return result;
 	}
@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 		stringstream s;
 		s << "cd optix && ./ray_tracing_optix " << args;
 		string cmd = s.str();
-		cout << cmd << endl;
+		//cout << cmd << endl;
 		int result = system(cmd.c_str());
 		if (result) return result;
 	}	
