@@ -213,10 +213,10 @@ int main( int argc, char* argv[] )
 		{
 			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
 			n_spheres = atoi(*(arg++));
-			arg += n_spheres;
+			arg += n_spheres * 7;
 			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
 			n_lights = atoi(*(arg++));
-			arg += n_lights;
+			arg += n_lights * 3;
 			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
 			width = atoi(*(arg++));
 			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
