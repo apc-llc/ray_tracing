@@ -113,11 +113,6 @@ static void ray_trace(
 	t_sphere * dev_spheres;
 	t_light * dev_lights;
 
-	cudaEvent_t start = 0, stop = 0;
-	CUDA_CALL (cudaEventCreate (&start) );
-	CUDA_CALL (cudaEventCreate (&stop) );
-	CUDA_CALL( cudaEventRecord (start, 0) );
-
 	CUDA_CALL( cudaMalloc((void **)&dev_spheres,  sizeof(t_sphere) * n_spheres ) );
 	CUDA_CALL( cudaMalloc((void **)&dev_lights,  sizeof(t_light) * n_lights ) );
 
@@ -158,17 +153,6 @@ static void ray_trace(
 
 	CUDA_CALL( cudaFree(dev_spheres) );
 	CUDA_CALL( cudaFree(dev_lights) );
-
-	CUDA_CALL( cudaEventRecord (stop, 0) );
-	CUDA_CALL( cudaEventSynchronize(stop) );
-
-	float gpuTime = 0.0f;
-	CUDA_CALL( cudaEventElapsedTime (&gpuTime, start, stop) );
-
-	printf("CUDA ray tracing time: %.2f milliseconds\n", gpuTime);
-
-	CUDA_CALL( cudaEventDestroy (start) );
-	CUDA_CALL( cudaEventDestroy (stop) );
 
 	free (spheres);
 	free (lights);
@@ -222,6 +206,11 @@ int main( int argc, char* argv[] )
 	printf ("Picture size is width = %d  height = %d \n", width, height);
 #endif
 
+	cudaEvent_t start = 0, stop = 0;
+	CUDA_CALL (cudaEventCreate (&start) );
+	CUDA_CALL (cudaEventCreate (&stop) );
+	CUDA_CALL( cudaEventRecord (start, 0) );
+
 	unsigned char * pR = (unsigned char *) malloc( height*width );
 	unsigned char * pG = (unsigned char *) malloc( height*width );
 	unsigned char * pB = (unsigned char *) malloc( height*width );
@@ -233,6 +222,17 @@ int main( int argc, char* argv[] )
 	}
 
 	ray_trace(pR, pG, pB, height, width, n_spheres, n_lights);
+
+	CUDA_CALL( cudaEventRecord (stop, 0) );
+	CUDA_CALL( cudaEventSynchronize(stop) );
+
+	float gpuTime = 0.0f;
+	CUDA_CALL( cudaEventElapsedTime (&gpuTime, start, stop) );
+
+	printf("CUDA ray tracing time: %.2f milliseconds\n", gpuTime);
+
+	CUDA_CALL( cudaEventDestroy (start) );
+	CUDA_CALL( cudaEventDestroy (stop) );
 
 	BMP AnImage;
 	AnImage.SetSize(width, height);
