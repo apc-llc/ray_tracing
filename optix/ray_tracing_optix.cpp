@@ -107,48 +107,9 @@ static void createContext( RTcontext* context, RTbuffer* output_buffer_obj )
 	RT_CHECK_ERROR2( rtContextSetMissProgram( *context, 0, miss_program ) );
 }
 
-static void createGeometry( RTcontext context, RTgeometry* geometry, int n_spheres, int n_lights )
+static void generateScene(optix::float4 * coords, optix::float3 * colors, int n_spheres,
+	BasicLight * lights, int n_lights)
 {
-	RT_CHECK_ERROR( rtGeometryCreate( context, geometry ) );
-	RT_CHECK_ERROR( rtGeometrySetPrimitiveCount( *geometry, 1u ) );
-
-	RTprogram  intersection_program;
-	RTprogram  bounding_box_program;
-	RT_CHECK_ERROR( rtProgramCreateFromPTXFile( context, "sphere.ptx", "bounds", &bounding_box_program) );
-	RT_CHECK_ERROR( rtGeometrySetBoundingBoxProgram( *geometry, bounding_box_program ) );
-	RT_CHECK_ERROR( rtProgramCreateFromPTXFile( context, "sphere.ptx", "intersect", &intersection_program) );
-	RT_CHECK_ERROR( rtGeometrySetIntersectionProgram( *geometry, intersection_program ) );
-
-	RTvariable spheres, spheres_colors, lights;
-	optix::float4 * coords;
-	optix::float3 * colors;
-
-	RTbuffer buff_coords,buff_colors;
-	RTbuffer buff_lights;
-	BasicLight * lightsPtr;
-
-	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_lights));
-	RT_CHECK_ERROR(rtBufferSetFormat(buff_lights, RT_FORMAT_USER));
-	RT_CHECK_ERROR(rtBufferSetElementSize(buff_lights, sizeof(BasicLight)));
-	RT_CHECK_ERROR(rtBufferSetSize1D(buff_lights, n_lights));
-	RT_CHECK_ERROR(rtContextDeclareVariable( context, "lights", &lights ) );
-	RT_CHECK_ERROR(rtVariableSetObject( lights, buff_lights ) );
-	RT_CHECK_ERROR(rtBufferMap(buff_lights, (void**)&lightsPtr));
-
-	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_coords));
-	RT_CHECK_ERROR(rtBufferSetFormat(buff_coords, RT_FORMAT_FLOAT4));
-	RT_CHECK_ERROR(rtBufferSetSize1D(buff_coords, n_spheres));
-	RT_CHECK_ERROR( rtContextDeclareVariable( context, "spheres", &spheres ) );
-	RT_CHECK_ERROR( rtVariableSetObject( spheres, buff_coords ) );
-	RT_CHECK_ERROR(rtBufferMap(buff_coords, (void**)&coords));
-
-	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_colors));
-	RT_CHECK_ERROR(rtBufferSetFormat(buff_colors, RT_FORMAT_FLOAT3));
-	RT_CHECK_ERROR(rtBufferSetSize1D(buff_colors, n_spheres));
-	RT_CHECK_ERROR( rtContextDeclareVariable( context, "spheres_colors", &spheres_colors ) );
-	RT_CHECK_ERROR( rtVariableSetObject( spheres_colors, buff_colors ) );
-	RT_CHECK_ERROR(rtBufferMap(buff_colors, (void**)&colors));
-
 	int n_random_coord = n_spheres * 3  + n_lights * 3;
 	int n_random_rad = n_spheres;
 	int n_random_colors = n_spheres * 3;
@@ -188,14 +149,84 @@ static void createGeometry( RTcontext context, RTgeometry* geometry, int n_spher
 
 	for (int i = 0; i < n_lights; i++)
 	{
-		lightsPtr[i].pos.x = hostData[j++] * BOX_SIZE; 
-		lightsPtr[i].pos.y = hostData[j++] * BOX_SIZE; 
-		lightsPtr[i].pos.z = hostData[j++] * DISTANCE + BOX_SIZE / 2.0; 
+		lights[i].pos.x = hostData[j++] * BOX_SIZE; 
+		lights[i].pos.y = hostData[j++] * BOX_SIZE; 
+		lights[i].pos.z = hostData[j++] * DISTANCE + BOX_SIZE / 2.0; 
 	}
 
 	CURAND_CALL( curandDestroyGenerator(gen) );
 	CUDA_CALL( cudaFree(devData) );
 	free(hostData);
+}
+
+static void createGeometry( RTcontext context, RTgeometry* geometry, int n_spheres, int n_lights,
+	char** values )
+{
+	RT_CHECK_ERROR( rtGeometryCreate( context, geometry ) );
+	RT_CHECK_ERROR( rtGeometrySetPrimitiveCount( *geometry, 1u ) );
+
+	RTprogram  intersection_program;
+	RTprogram  bounding_box_program;
+	RT_CHECK_ERROR( rtProgramCreateFromPTXFile( context, "sphere.ptx", "bounds", &bounding_box_program) );
+	RT_CHECK_ERROR( rtGeometrySetBoundingBoxProgram( *geometry, bounding_box_program ) );
+	RT_CHECK_ERROR( rtProgramCreateFromPTXFile( context, "sphere.ptx", "intersect", &intersection_program) );
+	RT_CHECK_ERROR( rtGeometrySetIntersectionProgram( *geometry, intersection_program ) );
+
+	RTvariable spheres, spheres_colors, lights;
+	optix::float4 * spheresCoords;
+	optix::float3 * spheresColors;
+
+	RTbuffer buff_coords, buff_colors;
+	RTbuffer buff_lights;
+	BasicLight * lightsCoords;
+
+	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_lights));
+	RT_CHECK_ERROR(rtBufferSetFormat(buff_lights, RT_FORMAT_USER));
+	RT_CHECK_ERROR(rtBufferSetElementSize(buff_lights, sizeof(BasicLight)));
+	RT_CHECK_ERROR(rtBufferSetSize1D(buff_lights, n_lights));
+	RT_CHECK_ERROR(rtContextDeclareVariable( context, "lights", &lights ) );
+	RT_CHECK_ERROR(rtVariableSetObject( lights, buff_lights ) );
+	RT_CHECK_ERROR(rtBufferMap(buff_lights, (void**)&lightsCoords));
+
+	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_coords));
+	RT_CHECK_ERROR(rtBufferSetFormat(buff_coords, RT_FORMAT_FLOAT4));
+	RT_CHECK_ERROR(rtBufferSetSize1D(buff_coords, n_spheres));
+	RT_CHECK_ERROR( rtContextDeclareVariable( context, "spheres", &spheres ) );
+	RT_CHECK_ERROR( rtVariableSetObject( spheres, buff_coords ) );
+	RT_CHECK_ERROR(rtBufferMap(buff_coords, (void**)&spheresCoords));
+
+	RT_CHECK_ERROR(rtBufferCreate(context, RT_BUFFER_INPUT, &buff_colors));
+	RT_CHECK_ERROR(rtBufferSetFormat(buff_colors, RT_FORMAT_FLOAT3));
+	RT_CHECK_ERROR(rtBufferSetSize1D(buff_colors, n_spheres));
+	RT_CHECK_ERROR( rtContextDeclareVariable( context, "spheres_colors", &spheres_colors ) );
+	RT_CHECK_ERROR( rtVariableSetObject( spheres_colors, buff_colors ) );
+	RT_CHECK_ERROR(rtBufferMap(buff_colors, (void**)&spheresColors));
+
+	if (!values)
+		generateScene(spheresCoords, spheresColors, n_spheres, lightsCoords, n_lights);
+	else
+	{
+		// Parse scene from the command line.
+		char** value = values;
+		value++; // skip n_spheres
+		for (int i = 0; i < n_spheres; i++)
+		{
+			spheresCoords[i].x = atof(*(value++));
+			spheresCoords[i].y = atof(*(value++));
+			spheresCoords[i].z = atof(*(value++));
+			spheresCoords[i].w = atof(*(value++));
+			spheresColors[i].x = atof(*(value++));
+			spheresColors[i].y = atof(*(value++));
+			spheresColors[i].z = atof(*(value++));
+		}
+		value++; // skip n_lights
+		for (int i = 0; i < n_lights; i++)
+		{
+			lightsCoords[i].pos.x = atof(*(value++));
+			lightsCoords[i].pos.y = atof(*(value++));
+			lightsCoords[i].pos.z = atof(*(value++));
+		}
+	}
 
 	RT_CHECK_ERROR(rtBufferUnmap(buff_coords));
 	RT_CHECK_ERROR(rtBufferUnmap(buff_colors));
@@ -305,13 +336,55 @@ static void writeBMP( RTcontext context, const char* filename, RTbuffer buffer)
 
 int main(int argc, char* argv[])
 {
-	if (argc != 6)
+	bool randomScene = false;
+	if (argc > 1)
+		if ((std::string)argv[1] == "random")
+			randomScene = true;
+
+	if (randomScene && (argc != 7))
 	{
-		printf("Usage: %s <n_spheres> <n_lights> <width> <height> <bmp_filename> \n", argv[0]);
-		return -1; 
+		printf("Usage: %s random <n_spheres> <n_lights> <width> <height> <bmp_filename> \n", argv[0]);
+		return -1;
 	}
 
-	int n_spheres = atoi( argv[1]);
+	int n_spheres, n_lights, width, height;
+	char* filename;
+	if (randomScene)
+	{
+		n_spheres = atoi(argv[2]);
+		n_lights = atoi(argv[3]);
+		width = atoi(argv[4]);
+		height = atoi(argv[5]);
+		filename = argv[6];
+	}
+	else
+	{
+		char** arg = &argv[1];
+		bool failed = true;
+		do
+		{
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			n_spheres = atoi(*(arg++));
+			arg += n_spheres;
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			n_lights = atoi(*(arg++));
+			arg += n_lights;
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			width = atoi(*(arg++));
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			height = atoi(*(arg++));
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			filename = *arg;
+			failed = false;
+		}
+		while (0);
+		if (failed)
+		{
+			fprintf(stderr, "Parsing failed: not enough arguments\n");
+			exit(1);
+		}
+	}
+
 #ifdef ENABLE_CHECK
 	if (n_spheres < 5 || n_spheres > 10)
 	{
@@ -320,7 +393,6 @@ int main(int argc, char* argv[])
 	}
 #endif
 
-	int n_lights = atoi( argv[2]);
 #ifdef ENABLE_CHECK
 	if (n_lights < 1 || n_lights > 2)
 	{
@@ -329,7 +401,6 @@ int main(int argc, char* argv[])
 	}
 #endif
 
-	int width = atoi( argv[3]);
 #ifdef ENABLE_CHECK
 	if (width < 800 || width > 1920)
 	{
@@ -338,7 +409,6 @@ int main(int argc, char* argv[])
 	}
 #endif
 
-	int height = atoi( argv[4]);
 #ifdef ENABLE_CHECK
 	if (height < 600 || height > 1080)
 	{
@@ -367,7 +437,10 @@ int main(int argc, char* argv[])
 	createContext( &context, &output_buffer_obj );
 
 	RTgeometry geometry;
-	createGeometry( context, &geometry, n_spheres, n_lights );
+	// Pass down spheres/lights, if specific scene is given in command line.
+	char** values = NULL;
+	if (!randomScene) values = &argv[1];
+	createGeometry( context, &geometry, n_spheres, n_lights, values );
 
 	RTmaterial material;
 	createMaterial( context, &material);
@@ -387,7 +460,7 @@ int main(int argc, char* argv[])
 	printf("OptiX ray tracing time: %.2f milliseconds\n", gpuTime);
 
     // Display image
-	writeBMP( context, argv[5], output_buffer_obj );
+	writeBMP( context, filename, output_buffer_obj );
 
 	// Clean up
 	RT_CHECK_ERROR( rtContextDestroy( context ) );

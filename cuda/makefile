@@ -13,8 +13,8 @@ ray_tracing_cuda: $(OBJECTS)
 %.o: %.cu
 	$(NVCC) -c $< -o $@ 
 	
-test: ray_tracing_cuda
-	./$< $(NUM_SPHERES) $(NUM_LIGHTS) $(WIDTH) $(HEIGHT) $(FILE_NAME)
+random: ray_tracing_cuda
+	./$< random $(NUM_SPHERES) $(NUM_LIGHTS) $(WIDTH) $(HEIGHT) $(FILE_NAME)
 
 clean:
 	rm -rf ray_tracing_cuda $(OBJECTS) $(FILE_NAME)

@@ -79,7 +79,7 @@ __global__ void kernel(
 
 static void ray_trace(
 	unsigned char * pR, unsigned char * pG, unsigned char * pB, 
-	int height, int width, int n_spheres, int n_lights)
+	int height, int width, int n_spheres, int n_lights, char** values)
 {
 //#define STACK_INCREASE
 #ifdef STACK_INCREASE 
@@ -103,7 +103,31 @@ static void ray_trace(
 		exit(-1);
 	}
 
-	generate_scene(spheres, n_spheres, lights, n_lights);
+	if (!values)
+		generate_scene(spheres, n_spheres, lights, n_lights);
+	else
+	{
+		// Parse scene from the command line.
+		char** value = values;
+		value++; // skip n_spheres
+		for (int i = 0; i < n_spheres; i++)
+		{
+			spheres[i].center.x = atof(*(value++));
+			spheres[i].center.y = atof(*(value++));
+			spheres[i].center.z = atof(*(value++));
+			spheres[i].radius = atof(*(value++));
+			spheres[i].red = atof(*(value++));
+			spheres[i].green = atof(*(value++));
+			spheres[i].blue = atof(*(value++));
+		}
+		value++; // skip n_lights
+		for (int i = 0; i < n_lights; i++)
+		{
+			lights[i].x = atof(*(value++));
+			lights[i].y = atof(*(value++));
+			lights[i].z = atof(*(value++));
+		}
+	}
 
 #ifdef DEBUG
 	print_spheres(spheres, n_spheres);
@@ -160,13 +184,55 @@ static void ray_trace(
 
 int main( int argc, char* argv[] )
 {
-	if (argc != 6)
+	bool randomScene = false;
+	if (argc > 1)
+		if ((std::string)argv[1] == "random")
+			randomScene = true;
+
+	if (randomScene && (argc != 7))
 	{
-		printf("Usage: %s <n_spheres> <n_lights> <width> <height> <bmp_filename> \n", argv[0]);
-		return -1; 
+		printf("Usage: %s random <n_spheres> <n_lights> <width> <height> <bmp_filename> \n", argv[0]);
+		return -1;
 	}
 
-	int n_spheres = atoi( argv[1]);
+	int n_spheres, n_lights, width, height;
+	char* filename;
+	if (randomScene)
+	{
+		n_spheres = atoi(argv[2]);
+		n_lights = atoi(argv[3]);
+		width = atoi(argv[4]);
+		height = atoi(argv[5]);
+		filename = argv[6];
+	}
+	else
+	{
+		char** arg = &argv[1];
+		bool failed = true;
+		do
+		{
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			n_spheres = atoi(*(arg++));
+			arg += n_spheres;
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			n_lights = atoi(*(arg++));
+			arg += n_lights;
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			width = atoi(*(arg++));
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			height = atoi(*(arg++));
+			if ((size_t)arg - (size_t)argv >= sizeof(char*) * argc) break;
+			filename = *arg;
+			failed = false;
+		}
+		while (0);
+		if (failed)
+		{
+			fprintf(stderr, "Parsing failed: not enough arguments\n");
+			exit(1);
+		}
+	}
+
 #ifdef ENABLE_CHECK
 	if (n_spheres < 5 || n_spheres > 10)
 	{
@@ -175,7 +241,6 @@ int main( int argc, char* argv[] )
 	}
 #endif
 
-	int n_lights = atoi( argv[2]);
 #ifdef ENABLE_CHECK
 	if (n_lights < 1 || n_lights > 2)
 	{
@@ -184,7 +249,6 @@ int main( int argc, char* argv[] )
 	}
 #endif
 
-	int width = atoi( argv[3]);
 #ifdef ENABLE_CHECK
 	if (width < 800 || width > 1920)
 	{
@@ -193,7 +257,6 @@ int main( int argc, char* argv[] )
 	}
 #endif
 
-	int height = atoi( argv[4]);
 #ifdef ENABLE_CHECK
 	if (height < 600 || height > 1080)
 	{
@@ -221,7 +284,10 @@ int main( int argc, char* argv[] )
 		return -1;
 	}
 
-	ray_trace(pR, pG, pB, height, width, n_spheres, n_lights);
+	// Pass down spheres/lights, if specific scene is given in command line.
+	char** values = NULL;
+	if (!randomScene) values = &argv[1];
+	ray_trace(pR, pG, pB, height, width, n_spheres, n_lights, values);
 
 	CUDA_CALL( cudaEventRecord (stop, 0) );
 	CUDA_CALL( cudaEventSynchronize(stop) );
@@ -247,7 +313,7 @@ int main( int argc, char* argv[] )
 			AnImage.SetPixel( i , j , pixel );
 		}
 	}
-	AnImage.WriteToFile(argv[5]);
+	AnImage.WriteToFile(filename);
 
 	free(pR);
 	free(pG);

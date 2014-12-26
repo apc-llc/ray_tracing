@@ -27,8 +27,8 @@ ray_tracing_optix.o: ray_tracing_optix.cpp
 EasyBMP.o: ../bmp/EasyBMP.cpp
 	g++ $(OPT) $< -c $<
 
-test: ray_tracing_optix
-	./$< $(NUM_SPHERES) $(NUM_LIGHTS) $(WIDTH) $(HEIGHT) $(FILE_NAME)
+random: ray_tracing_optix
+	./$< random $(NUM_SPHERES) $(NUM_LIGHTS) $(WIDTH) $(HEIGHT) $(FILE_NAME)
 
 clean:
 	rm -rf ray_tracing_optix *.o *.ptx $(FILE_NAME)
