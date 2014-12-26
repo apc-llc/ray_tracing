@@ -22,7 +22,7 @@ sphere.ptx: sphere.cu
 	$(NVCC) -I$(OPTIX)/include $(OPT) -arch=sm_$(ARCH) --use_fast_math -ptx -c $< -o $@
 
 ray_tracing_optix.o: ray_tracing_optix.cpp
-	$(NVCC) -I.. -I../bmp -I$(OPTIX)/include $(OPT) -arch=sm_$(ARCH) -Xcompiler -ffast-math -Xcompiler -mtune=native -I$(OPTIX)/SDK/sutil -c $< -o $@
+	$(NVCC) -Xcompiler -ansi -I.. -I../bmp -I$(OPTIX)/include $(OPT) -arch=sm_$(ARCH) -Xcompiler -ffast-math -Xcompiler -mtune=native -I$(OPTIX)/SDK/sutil -c $< -o $@
 
 EasyBMP.o: ../bmp/EasyBMP.cpp
 	g++ $(OPT) $< -c $<
