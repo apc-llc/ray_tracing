@@ -81,9 +81,9 @@ static void createContext( RTcontext* context, RTbuffer* output_buffer_obj )
 	RT_CHECK_ERROR2( rtContextDeclareVariable( *context, "W" , &W) );
 
 	cam_eye[0]= 10.0f;  cam_eye[1]= 5.625f;  cam_eye[2]=  0.0f;
-	lookat[0] = 5.0f;  lookat[1] = 5.625f;  lookat[2] = 25.f;
-	up[0]     = 0.0f;  up[1]     = -1.0f;  up[2]     = 0.0f;
-	hfov      = 60.0f;
+	lookat[0] = 10.0f;  lookat[1] = 5.625f;  lookat[2] = 25.0f;
+	up[0]     = 0.0f;  up[1]     = 1.0f;  up[2]     = 0.0f;
+	hfov      = 45.0f;
 
 	aspect_ratio = (float)width/(float)height;
 	sutilCalculateCameraVariables( cam_eye, lookat, up, hfov, aspect_ratio,
@@ -333,7 +333,7 @@ static void writeBMP( RTcontext context, const char* filename, RTbuffer buffer)
 	// Data is BGRA and upside down, so we need to swizzle to RGB
 	BMP AnImage;
 	AnImage.SetSize(width, height);
-	for (int j = height - 1; j >= 0; --j)
+	for (int j = 0; j < height; ++j)
 	{
 		unsigned char *src = ((unsigned char*)imageData) + (4 * width * j);
 		for (int i = 0; i < width; i++)
@@ -343,7 +343,7 @@ static void writeBMP( RTcontext context, const char* filename, RTbuffer buffer)
 			pixel.Green = *(src + 1);
 			pixel.Blue = *(src + 0);
 			src += 4;
-			AnImage.SetPixel( i , j , pixel ) ;
+			AnImage.SetPixel( width-i-1 , j , pixel ) ;
 		}
 	}
 	AnImage.WriteToFile(filename);
