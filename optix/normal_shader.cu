@@ -62,10 +62,13 @@ rtDeclareVariable(rtObject,     top_object, , );
 rtDeclareVariable(float3,   Ka, , ); 
 rtDeclareVariable(float3,   Ks, , ); 
 rtDeclareVariable(float,    phong_exp, , );
+rtDeclareVariable(float,    max_depth, , );
 rtDeclareVariable(float3,   Kd, , ); 
 rtDeclareVariable(float3,   ambient_light_color, , );
+rtDeclareVariable(float3,   reflectivity, , );
 rtBuffer<BasicLight>        lights;
 rtDeclareVariable(rtObject, top_shadower, , );
+
 
 
 
@@ -89,7 +92,8 @@ RT_PROGRAM void closest_hit_radiance()
 
 	float3 hit_point = ray.origin + t_hit * ray.direction;
 
-	for(int i = 0; i <lights.size(); ++i) {
+	for(int i = 0; i <lights.size(); ++i)
+	{
 		BasicLight light = lights[i];
 		float3 L = normalize(light.pos - hit_point);
 		float nDl = dot( ffnormal, L);
@@ -103,14 +107,27 @@ RT_PROGRAM void closest_hit_radiance()
 			rtTrace(top_shadower, shadow_ray, shadow_prd);
 			float3 light_attenuation = shadow_prd.attenuation;
 
-			if( fmaxf(light_attenuation) > 0.0f ){
+			if( fmaxf(light_attenuation) > 0.0f )
+			{
 				float3 Lc = Kd*color_normal;// * light_attenuation;
 				color += Lc;
 			}
 
 		}
 	}
-	prd_radiance.result = Ks*color_normal+color/lights.size();
+	color = Ks*color_normal+color/lights.size();
+	
+	// reflection ray
+	if(prd_radiance.depth < max_depth) 
+	{
+		PerRayData_radiance refl_prd;
+		refl_prd.depth = prd_radiance.depth+1;
+		float3 R = reflect( ray.direction, ffnormal );
+		optix::Ray refl_ray( hit_point, R, radiance_ray_type, scene_epsilon );
+		rtTrace(top_object, refl_ray, refl_prd);
+		color += reflectivity * refl_prd.result;		
+	}
+	prd_radiance.result = color;
 }
 
 

@@ -218,6 +218,7 @@ static void createGeometry( RTcontext context, RTgeometry* geometry, int n_spher
 	RT_CHECK_ERROR( rtContextDeclareVariable( context, "spheres_colors", &spheres_colors ) );
 	RT_CHECK_ERROR( rtVariableSetObject( spheres_colors, buff_colors ) );
 	RT_CHECK_ERROR(rtBufferMap(buff_colors, (void**)&spheresColors));
+	
 
 	if (!values)
 		generateScene(spheresCoords, spheresColors, n_spheres, lightsCoords, n_lights);
@@ -249,16 +250,20 @@ static void createGeometry( RTcontext context, RTgeometry* geometry, int n_spher
 	RT_CHECK_ERROR(rtBufferUnmap(buff_colors));
 	RT_CHECK_ERROR(rtBufferUnmap(buff_lights));
 
-	RTvariable Ka, Kd, Ks, phong_exp;
+	RTvariable Ka, Kd, Ks, phong_exp, max_depth,reflectivity;
 	RT_CHECK_ERROR(rtContextDeclareVariable( context, "Ka", &Ka ) );
 	RT_CHECK_ERROR(rtContextDeclareVariable( context, "Kd", &Kd ) );
 	RT_CHECK_ERROR(rtContextDeclareVariable( context, "Ks", &Ks ) );
 	RT_CHECK_ERROR(rtContextDeclareVariable( context, "phong_exp", &phong_exp ) );
+	RT_CHECK_ERROR(rtContextDeclareVariable( context, "max_depth", &max_depth ) );
+	RT_CHECK_ERROR(rtContextDeclareVariable( context, "reflectivity", &reflectivity ) );
 	RT_CHECK_ERROR(rtVariableSet3f(Ka, 1.0f,1.0f,1.0f));
 	RT_CHECK_ERROR(rtVariableSet3f(Kd, 0.6f,0.6f,0.6f));
 	RT_CHECK_ERROR(rtVariableSet3f(Ks, 0.4f,0.4f,0.4f));
 	RT_CHECK_ERROR(rtVariableSet3f(Ka, 1.0f,1.0f,1.0f));
+	RT_CHECK_ERROR(rtVariableSet3f(reflectivity, 1.0f,1.0f,1.0f));
 	RT_CHECK_ERROR(rtVariableSet1f(phong_exp, 88));
+	RT_CHECK_ERROR(rtVariableSet1f(max_depth, 4));
 }
 
 static void createMaterial( RTcontext context, RTmaterial* material )
