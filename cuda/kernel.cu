@@ -170,6 +170,7 @@ __device__ t_color TraceRay(t_ray ray, int depth)
 	t_sphere_intersection intersection, current_intersection;
 	int intersection_object = -1; // none
 	int k, i;
+	int cnt_lights=n_lights; // count of visible lights. Default =2
 
 	float visible = 1.0f;
 	float current_lambda = FLT_MAX; // maximum positive float
@@ -202,21 +203,19 @@ __device__ t_color TraceRay(t_ray ray, int depth)
 					(&ray_tmp, &spheres[k], &intersection)
 				   )
 				{
-					visible -= 0.5f;
+					cnt_lights--;
 					break;
 				}
 			}
-
-
-			illumination.red   = __fadd_rn (
-				illumination.red, __fmul_rn(visible, spheres[intersection_object].red));
-			illumination.green = __fadd_rn (
-				illumination.green, __fmul_rn(visible, spheres[intersection_object].green));
-			illumination.blue  = __fadd_rn (
-				illumination.blue, __fmul_rn(visible, spheres[intersection_object].blue));
-
-
 		}
+
+		visible=0.4f+0.6f*cnt_lights/n_lights;
+
+		illumination.red   =  __fmul_rn(visible, spheres[intersection_object].red);
+		illumination.green =  __fmul_rn(visible, spheres[intersection_object].green);
+		illumination.blue  =  __fmul_rn(visible, spheres[intersection_object].blue);
+
+
 		compute_reflected_ray(&ray_tmp, &ray, &current_intersection);
 
 		tmp = TraceRay(ray_tmp, depth + 1 );
