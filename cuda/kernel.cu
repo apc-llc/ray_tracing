@@ -54,17 +54,17 @@ __device__ void normalize_vector(t_vector *v)
 	v->z = __fdiv_rn (v->z, magnitude);
 }
 
-__device__ void compute_ray(t_ray* ray, t_vector* view_point, t_pixel* pixel) 
+__device__ void compute_ray(t_ray* ray, t_vector* view_point, t_pixel* pixel, float width, float height) 
 {
 	ray->origin = *view_point;
 
 	ray->direction.x = 
-		__fdiv_rn(__fmul_rn(X_DIM, pixel->i), 
-			__mul24(blockDim.x, gridDim.x)) - __fdiv_rn(X_DIM, 2.0f) ;
+		__fdiv_rn(__fmul_rn(X_DIM, pixel->i+1), 
+			(width)) - __fdiv_rn(X_DIM, 2.0f) ;
 
 	ray->direction.y = 
 		__fdiv_rn(__fmul_rn(y_dim, pixel->j), 
-			__mul24(blockDim.y, gridDim.y)) - __fdiv_rn(y_dim, 2.0f) ;
+			(height)) - __fdiv_rn(y_dim, 2.0f) ;
 
 	ray->direction.z = (float)DISTANCE;
 
@@ -289,7 +289,7 @@ __global__ void kernel(unsigned char * dev_image_red,
 	}
 
 	//compute ray starting point and direction ;
-	compute_ray(&ray, &view_point, &pixel);
+	compute_ray(&ray, &view_point, &pixel, width, height);
 	illumination = TraceRay(ray, 0) ;
 	//pixel color = illumination tone mapped to displayable range ;
 

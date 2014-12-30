@@ -80,15 +80,40 @@ static void createContext( RTcontext* context, RTbuffer* output_buffer_obj )
 	RT_CHECK_ERROR2( rtContextDeclareVariable( *context, "V" , &V) );
 	RT_CHECK_ERROR2( rtContextDeclareVariable( *context, "W" , &W) );
 
-	cam_eye[0]= 10.0f;  cam_eye[1]= 5.625f;  cam_eye[2]=  0.0f;
-	lookat[0] = 10.0f;  lookat[1] = 5.625f;  lookat[2] = 25.0f;
+	float box_size_y=((float)height*BOX_SIZE/(float)width)/2.0f;
+	cam_eye[0]= BOX_SIZE/2.0f;  cam_eye[1]= box_size_y;  cam_eye[2]=  0.0f;
+	lookat[0] = BOX_SIZE/2.0f;  lookat[1] = box_size_y;  lookat[2] = 25.0f;
 	up[0]     = 0.0f;  up[1]     = 1.0f;  up[2]     = 0.0f;
 	hfov      = 45.0f;
 
 	aspect_ratio = (float)width/(float)height;
-	sutilCalculateCameraVariables( cam_eye, lookat, up, hfov, aspect_ratio,
-		camera_u, camera_v, camera_w );
-
+	//sutilCalculateCameraVariables( cam_eye, lookat, up, hfov, aspect_ratio,
+	//		camera_u, camera_v, camera_w );
+	
+	camera_u[0]=-BOX_SIZE/2.0f;
+	camera_u[1]=0.0f;
+	camera_u[2]=0.0f;
+	
+	camera_v[0]=0.0f;
+	camera_v[1]=box_size_y;
+	camera_v[2]=0.0f;
+	
+	camera_w[0]=0.0f;
+	camera_w[1]=0.0f;
+	camera_w[2]=25.0f;
+	
+	#ifdef DEBUG
+	printf("camera x=%f, y=%f, z=%f \n", cam_eye[0], cam_eye[1],cam_eye[2]);
+	printf("lookat x=%f, y=%f, z=%f \n", lookat[0], lookat[1],lookat[2]);
+	printf("up x=%f, y=%f, z=%f \n", up[0], up[1], up[2]);
+	printf("hfov =%f \n", hfov);
+	printf("camera_u x=%f, y=%f, z=%f \n", camera_u[0], camera_u[1],camera_u[2]);
+	printf("camera_v x=%f, y=%f, z=%f \n", camera_v[0], camera_v[1],camera_v[2]);
+	printf("camera_w x=%f, y=%f, z=%f \n", camera_w[0], camera_w[1],camera_w[2]);
+	#endif
+	
+	
+	
 	RT_CHECK_ERROR2( rtVariableSet3fv( eye, cam_eye ) );
 	RT_CHECK_ERROR2( rtVariableSet3fv( U, camera_u ) );
 	RT_CHECK_ERROR2( rtVariableSet3fv( V, camera_v ) );
@@ -229,9 +254,22 @@ static void createGeometry( RTcontext context, RTgeometry* geometry, int n_spher
 		value++; // skip n_spheres
 		for (int i = 0; i < n_spheres; i++)
 		{
+			#ifdef DEBUG
+			printf ("sphere %i \n", i);
+			printf ("sphere.x %f \n", atof(*(value)));
+			#endif
 			spheresCoords[i].x = atof(*(value++));
+			#ifdef DEBUG
+			printf ("sphere.y %f \n", atof(*(value)));
+			#endif
 			spheresCoords[i].y = atof(*(value++));
+			#ifdef DEBUG
+			printf ("sphere.z %f \n", atof(*(value)));
+			#endif
 			spheresCoords[i].z = atof(*(value++));
+			#ifdef DEBUG
+			printf ("sphere.r %f \n", atof(*(value)));
+			#endif
 			spheresCoords[i].w = atof(*(value++));
 			spheresColors[i].x = atof(*(value++));
 			spheresColors[i].y = atof(*(value++));
@@ -245,6 +283,8 @@ static void createGeometry( RTcontext context, RTgeometry* geometry, int n_spher
 			lightsCoords[i].pos.z = atof(*(value++));
 		}
 	}
+	
+			
 
 	RT_CHECK_ERROR(rtBufferUnmap(buff_coords));
 	RT_CHECK_ERROR(rtBufferUnmap(buff_colors));
@@ -399,6 +439,7 @@ int main(int argc, char* argv[])
 			filename = *arg;
 			failed = false;
 		}
+		
 		while (0);
 		if (failed)
 		{
