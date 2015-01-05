@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 
+#include "EasyBMP.h"
 #include "types.h"
 
 using namespace std;
@@ -148,6 +149,48 @@ int main(int argc, char** argv)
 	}	
 
 	// Compare BMP outputs
+	BMP ImageCUDA;
+	ImageCUDA.ReadFromFile("cuda/output.bmp");
+	BMP ImageOptix;
+	ImageOptix.ReadFromFile("optix/output.bmp");
+	width = ImageCUDA.TellWidth();
+	height = ImageCUDA.TellHeight();
+	if (width != ImageOptix.TellWidth())
+	{
+		fprintf(stderr, "CUDA and Optix output images widths mismatch: %d != %d",
+			width, ImageOptix.TellWidth());
+		return 1;
+	}
+	if (height != ImageOptix.TellHeight())
+	{
+		fprintf(stderr, "CUDA and Optix output images heights mismatch: %d != %d",
+			height, ImageOptix.TellHeight());
+		return 1;
+	}
+	
+	uint maxRdiff = 0, maxGdiff = 0, maxBdiff = 0;
+	float avgRdiff = 0.0, avgGdiff = 0.0, avgBdiff = 0.0;
+	for (int i = 0; i < width; i++)
+	{
+		for (int j = 0; j < height; j++)
+		{
+			RGBApixel PixelCUDA = ImageCUDA.GetPixel(i, j);
+			RGBApixel PixelOptix = ImageOptix.GetPixel(i, j);
+			
+			maxRdiff = max(maxRdiff, abs(PixelCUDA.Red - PixelOptix.Red));
+			maxGdiff = max(maxGdiff, abs(PixelCUDA.Green - PixelOptix.Green));
+			maxBdiff = max(maxBdiff, abs(PixelCUDA.Blue - PixelOptix.Blue));
+
+			avgRdiff += abs(PixelCUDA.Red - PixelOptix.Red);
+			avgGdiff += abs(PixelCUDA.Green - PixelOptix.Green);
+			avgBdiff += abs(PixelCUDA.Blue - PixelOptix.Blue);
+		}
+	}
+
+	printf("Images max abs difference: { R, G, B } = { %u, %u, %u }\n",
+		(uint)maxRdiff, (uint)maxGdiff, (uint)maxBdiff);
+	printf("Images average difference: { R, G, B } = { %f, %f, %f }\n",
+		avgRdiff / (width * height), avgGdiff / (width * height), avgBdiff / (width * height));
 
 	return 0;
 }

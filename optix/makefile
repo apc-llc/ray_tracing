@@ -25,7 +25,7 @@ ray_tracing_optix.o: ray_tracing_optix.cpp
 	$(NVCC) -Xcompiler -ansi -I.. -I../bmp -I$(OPTIX)/include $(OPT) -arch=sm_$(ARCH) -Xcompiler -ffast-math -Xcompiler -mtune=native -I$(OPTIX)/SDK/sutil -c $< -o $@
 
 EasyBMP.o: ../bmp/EasyBMP.cpp
-	g++ $(OPT) $< -c $<
+	g++ $(OPT) -c $< -o $@
 
 random: ray_tracing_optix
 	./$< random $(NUM_SPHERES) $(NUM_LIGHTS) $(WIDTH) $(HEIGHT) $(FILE_NAME)
